@@ -8,21 +8,24 @@ Console.Clear();
 
 // Code
 
-int playerVictoryCounter = 0;
+/*int playerVictoryCounter = 0;
 for (int i = 0; i < 100; i++)
 {
     GameManager game = new GameManager(PlayerType.Robot, PlayerType.Robot, "CASTRO");
     if (game.Run()) playerVictoryCounter++;
 }
 
-Console.WriteLine(playerVictoryCounter);
+Console.WriteLine(playerVictoryCounter);*/
+
+//GameManager game = new GameManager();
+//game.Run();
 
 public class GameManager
 {
     public EntityManager Entities { get; }
     public PlayerType PlayerPartyMode{ get; }
     public PlayerType EnemyPartyMode{ get; }
-    private TurnManager _turnManager;
+    private GameUserManager _gameUserManager;
     private Dictionary<int, List<Entity>> _roundEnemyRoster =
         new Dictionary<int, List<Entity>>();
     private int _currentRound = 0;
@@ -33,7 +36,7 @@ public class GameManager
         Entities = new EntityManager(playerName);
         PlayerPartyMode = ally;
         EnemyPartyMode = enemy;
-        _turnManager = new TurnManager(this);
+        _gameUserManager = new GameUserManager(Entities);
         InitializeEnemyRoster();
     }
 
@@ -50,17 +53,17 @@ public class GameManager
             switch(i)
             {
                 case 0:
-                    _roundEnemyRoster[0] = [new Enemy(EnemyType.SKELETON), 
-                        new Enemy(EnemyType.SKELETON)];
+                    _roundEnemyRoster[0] = [new Entity(EntityType.SKELETON), 
+                        new Entity(EntityType.SKELETON)];
                     break;
                 case 1:
-                    _roundEnemyRoster[1] = [new Enemy(EnemyType.SKELETON), 
-                        new Enemy(EnemyType.SKELETON)];
+                    _roundEnemyRoster[1] = [new Entity(EntityType.SKELETON), 
+                        new Entity(EntityType.SKELETON)];
                     break;
                 case 2:
-                    _roundEnemyRoster[2] = [new Enemy(EnemyType.SKELETON), 
-                        new Enemy(EnemyType.SKELETON), 
-                        new Enemy(EnemyType.UNCODED_ONE)];
+                    _roundEnemyRoster[2] = [new Entity(EntityType.SKELETON), 
+                        new Entity(EntityType.SKELETON), 
+                        new Entity(EntityType.UNCODED_ONE)];
                     break;
                 default:
                     throw new NotSupportedException();
@@ -71,7 +74,7 @@ public class GameManager
     private void SetUpRoundRoster()
     {
         foreach(Entity e in _roundEnemyRoster[_currentRound])
-            Entities.AddEnemy(e);
+            Entities.AddEntity(e);
     }
 
     private bool IsFinalRound() => _currentRound >= _maxRounds;
@@ -86,7 +89,7 @@ public class GameManager
                 $"{_maxRounds + 1}");
             foreach (Entity entity in Entities.GetPlayerParty())
             {
-                _turnManager.ExecuteTurn(entity, PlayerPartyMode);
+                ExecuteTurn(entity, PlayerPartyMode);
                 if (EnemiesCleared())
                 {
                     if (IsFinalRound())
@@ -106,7 +109,7 @@ public class GameManager
             }
             foreach (Entity entity in Entities.GetEnemyParty())
             {
-                _turnManager.ExecuteTurn(entity, EnemyPartyMode);
+                ExecuteTurn(entity, EnemyPartyMode);
                 if (PlayersCleared())
                 {
                     Console.WriteLine("You have been slain!\nGAME OVER...");
@@ -115,140 +118,89 @@ public class GameManager
             }
         }
     }
-}
 
-public class TurnManager
-{
-    public GameManager Game { get; }
-    private RobotManager _robotManager;
-    private UserManager _userManager;
-
-    public TurnManager(GameManager game)
-    {
-        Game = game;
-        _robotManager = new RobotManager(game.Entities);
-        _userManager = new UserManager(game.Entities);
-    }
-
-    public void ExecuteTurn(Entity entity, PlayerType type)
+    private void ExecuteTurn(Entity entity, PlayerType type)
     {
         ConsoleManager.Turn(entity.Name);
-        switch (type)
-        {
-            case PlayerType.Robot:
-                _robotManager.DoTurn(entity);
-                break;
-            case PlayerType.User:
-                _userManager.DoTurn(entity);
-                break;
-            default:
-                throw new NotSupportedException();
-        }
+        _gameUserManager.DoTurn(entity, type);
         ConsoleManager.BlankLine();
     }
 }
 
-public class RobotManager
+public class GameUserManager
 {
     private EntityManager _entities { get; }
 
-    public RobotManager(EntityManager entities)
-    {
-        _entities = entities;
-    }
+    public GameUserManager(EntityManager entities) => _entities = entities;
 
-    public void DoTurn(Entity entity)
+    public void DoTurn(Entity entity, PlayerType playerType)
     {
-        IAction newAction = GetBestTurn();
+        IAction newAction = GetAction(playerType);
         switch (newAction.GetType().GetInterfaces())
         {
             case Type[] type when type.Contains(typeof(ITargetEnemy)):
-                newAction.ExecuteAction(entity, ChooseBestEnemy(entity));
+                newAction.ExecuteAction(entity, EntitySelection(
+                    _entities.GetEnemiesForEntity(entity), playerType));
                 break;
             case Type[] type when type.Contains(typeof(ITargetSelf)):
                 newAction.ExecuteAction(entity, entity);
                 break;
-            case Type[] x when x.Contains(typeof(ITargetAlly)):
-                newAction.ExecuteAction(entity, ChooseBestAlly(entity));
+            case Type[] type when type.Contains(typeof(ITargetAlly)):
+                newAction.ExecuteAction(entity, EntitySelection(
+                    _entities.GetAlliesForEntity(entity), playerType));
                 break;
             default:
                 throw new NotSupportedException();
         }
     }
-
-    private Entity ChooseBestEnemy(Entity entity)
+    private Entity EntitySelection(List<Entity> entities, PlayerType type)
     {
-        return _entities.GetEnemiesForEntity(entity)[0];
-    }
-    private Entity ChooseBestAlly(Entity entity)
-    {
-        return _entities.GetAlliesForEntity(entity)[0];
-    }
-    private IAction GetBestTurn()
-    {
-        return ActionFactory.GetAction(typeof(ActionAttack));
-    }
-}
-
-public class UserManager
-{
-    private EntityManager _entities { get; }
-
-    public UserManager(EntityManager entities)
-    {
-        _entities = entities;
-    }
-
-    public void DoTurn(Entity entity)
-    {
-        IAction newAction = ActionFactory.GetAction(ConsoleManager.AskForAction());
-        switch (newAction.GetType().GetInterfaces())
+        return type switch
         {
-            case Type[] type when type.Contains(typeof(ITargetEnemy)):
-                newAction.ExecuteAction(entity,
-                    ConsoleManager.AskForTargetChoice(
-                        _entities.GetEnemiesForEntity(entity)));
-                break;
-            case Type[] type when type.Contains(typeof(ITargetSelf)):
-                newAction.ExecuteAction(entity,entity);
-                break;
-            case Type[] x when x.Contains(typeof(ITargetAlly)):
-                newAction.ExecuteAction(entity,
-                    ConsoleManager.AskForTargetChoice(
-                        _entities.GetAlliesForEntity(entity)));
-                break;
-            default:
-                throw new NotSupportedException();
-        }
+            PlayerType.Robot => entities[0],
+            PlayerType.User => ConsoleManager.AskForTargetChoice(entities),
+            _ => throw new NotSupportedException()
+        };
+    }
+
+    private IAction GetAction(PlayerType type)
+    {
+        return type switch
+        {
+            PlayerType.Robot => ActionFactory.GetAction(typeof(ActionAttack)),
+            PlayerType.User => ActionFactory.GetAction(ConsoleManager.AskForAction()),
+            _ => throw new NotSupportedException()
+        };
     }
 }
 
 public class EntityManager
 {
-    private List<Entity> _playerParty;
-    private List<Entity> _enemyParty;
+    private Dictionary<Guid, Entity> _entityDict;
     
     public EntityManager(string playerName)
     {
-        _playerParty = new List<Entity>();
-        AddAlly(new Player(playerName));
-        _enemyParty = new List<Entity>();
+        _entityDict = new Dictionary<Guid, Entity>();
+        AddEntity(new Entity(EntityType.PLAYER));
     }
 
-    public List<Entity> GetPlayerParty()
+    public List<Entity> GetPlayerParty() => GetFactionParty(Faction.Ally);
+    public List<Entity> GetEnemyParty() => GetFactionParty(Faction.Enemy);
+    
+    private List<Entity> GetFactionParty(Faction faction)
     {
-        return _playerParty;
-    }
-    public List<Entity> GetEnemyParty()
-    {
-        return _enemyParty;
+        List<Entity> list = new List<Entity>();
+        foreach (KeyValuePair<Guid, Entity> kvp in _entityDict)
+            if (kvp.Value.Faction == faction)
+                list.Add(kvp.Value);
+        return list;
     }
     public List<Entity> GetAlliesForEntity(Entity entity)
     {
         return entity.Faction switch
         {
-            Faction.Ally => _playerParty,
-            Faction.Enemy => _enemyParty,
+            Faction.Ally => GetPlayerParty(),
+            Faction.Enemy => GetEnemyParty(),
             _ => throw new NotImplementedException()
         };
     }
@@ -256,37 +208,28 @@ public class EntityManager
     {
         return entity.Faction switch
         {
-            Faction.Ally => _enemyParty,
-            Faction.Enemy => _playerParty,
+            Faction.Ally => GetEnemyParty(),
+            Faction.Enemy => GetPlayerParty(),
             _ => throw new NotImplementedException()
         };
     }
-    public void AddEnemy(Entity entity)
+    public void AddEntity(Entity entity)
     {
-        entity.EntityDied += OnEnemyDeath;
-        _enemyParty.Add(entity);
+        entity.EntityDied += OnEntityDeath;
+        _entityDict.Add(entity.UniqueID, entity);
     }
-    private void AddAlly(Entity entity)
-    {
-        entity.EntityDied += OnAllyDeath;
-        _playerParty.Add(entity);
-    }
-    private void OnEnemyDeath(Entity entity) => _enemyParty.RemoveAll(
-        x => x.UniqueID == entity.UniqueID);
-    private void OnAllyDeath(Entity entity) => _playerParty.RemoveAll(
-        x => x.UniqueID == entity.UniqueID);
+    private void OnEntityDeath(Entity entity) => 
+        _entityDict.Remove(entity.UniqueID);
 }
 
 public static class ConsoleManager
 {
-    public static void Turn(string name)
-    {
+    public static void Turn(string name) => 
         Console.WriteLine($"It is {name}'s turn...");
-    }
-    public static void BlankLine()
-    {
+    public static void BlankLine() =>
         Console.WriteLine();
-    }
+    public static void GameStart() =>
+        Console.WriteLine("Welcome to the \"Final Battle\".");
     public static string AskForPlayerName()
     {
         Console.Write("What is Your name? ");
@@ -298,10 +241,6 @@ public static class ConsoleManager
         while (name == null);
         return name;
     }   
-    public static void GameStart()
-    {
-        Console.WriteLine("Welcome to the \"Final Battle\".");
-    }
     public static PlayerType AskForPlayerType(Faction faction)
     {
         Console.WriteLine($"Who should control the {faction.ToString()} party?");
@@ -370,6 +309,7 @@ public static class ConsoleManager
     }
 }
 
+// ACTIONS
 public interface IAction
 {
     public void ExecuteAction(Entity source, Entity target);
@@ -396,10 +336,8 @@ public class ActionAttack : IAction, ITargetEnemy
 
 public class ActionNothing : IAction, ITargetSelf
 { 
-    public void ExecuteAction(Entity source, Entity target)
-    {
+    public void ExecuteAction(Entity source, Entity target) => 
         Console.WriteLine($"{source.Name} did NOTHING");
-    }
 }
 
 public class ActionKill : IAction, ITargetEnemy
@@ -427,25 +365,43 @@ public static class ActionFactory
         object a_Context = Activator.CreateInstance(type);
         return (IAction)a_Context;
     }
-
 }
 
-public abstract class Entity
+// ENTITY
+public class Entity
 {
+    private static Dictionary<EntityType, EntityStats> _entityStats = 
+        new Dictionary<EntityType, EntityStats>();
+    static Entity()
+    {
+        _entityStats.Add(EntityType.PLAYER, 
+            new EntityStats(25, () => 2, "PUNCH", Faction.Ally));
+        _entityStats.Add(EntityType.SKELETON, 
+            new EntityStats(5, () => new Random().Next(2), "BONE CRUNCH", Faction.Enemy));
+        _entityStats.Add(EntityType.UNCODED_ONE, 
+            new EntityStats(10, () => new Random().Next(3), "UNRAVEL", Faction.Enemy));
+    }
+
     public string Name { get; }
-    public int HP { get; protected set; }
-    public int MaxHP { get; init; }
-    public abstract Faction Faction { get; }
+    public int HP { get; private set; }
+    public int MaxHP { get; }
+    public Faction Faction { get; }
+    public EntityType Type { get; }
     public Guid UniqueID { get; }
     public event Action<Entity> EntityDied;
 
-    public Entity (string name)
+    public Entity (EntityType type)
     {
-        Name = name;
+        Type = type;
+        HP = _entityStats[Type].HP;
+        Faction = _entityStats[Type].Faction;
+        MaxHP = HP;
+        Name = type.ToString();
         UniqueID = Guid.NewGuid();
     }
 
-    public abstract string GetDamageString();
+    public string GetDamageString() => _entityStats[Type].DamageString;
+    public int GetDamage() => _entityStats[Type].Damage.Invoke();
 
     public void DamageHealth(int damage)
     {
@@ -458,87 +414,20 @@ public abstract class Entity
         DeathMessage();
         EntityDied.Invoke(this);
     }
+
     private void DamageMessage()
     {
         Console.WriteLine($"{this.Name} is now at {this.HP} / " +
             $"{this.MaxHP}");
     }
-    private void DeathMessage()
-    {
+    private void DeathMessage() =>
         Console.WriteLine($"{this.Name} has been defeated!");
-    }
-
-    public abstract int GetDamage();
-
-    public void Kill()
-    {
-        this.DamageHealth(10000);
-    }
+    public void Kill() => this.DamageHealth(10000);
 }
 
-public class Enemy : Entity
-{
-    public override Faction Faction { get => Faction.Enemy; }
-    public EnemyType Type { get; }
-    public Enemy(EnemyType type) : base(type.ToString()) 
-    {
-        Type = type;
-        HP = GetHealth(type);
-        MaxHP = HP;
-    }
+public record EntityStats(int HP, Func<int> Damage, string DamageString, Faction Faction);
 
-    private static int GetHealth(EnemyType type)
-    {
-        return type switch
-        {
-            EnemyType.SKELETON => 5,
-            EnemyType.UNCODED_ONE => 15,
-            _ => throw new NotImplementedException()
-        };
-    }
-
-    public override string GetDamageString()
-    {
-        return Type switch
-        {
-            EnemyType.SKELETON => "BONE CRUNCH",
-            EnemyType.UNCODED_ONE => "UNRAVELING",
-            _ => throw new NotImplementedException()
-        };
-    }
-
-    public override int GetDamage()
-    {
-        return Type switch
-        {
-            EnemyType.SKELETON => new Random().Next(2),
-            EnemyType.UNCODED_ONE => new Random().Next(3),
-            _ => throw new NotImplementedException()
-        };
-    }
-}
-
-public class Player : Entity
-{
-    public override Faction Faction { get => Faction.Ally; }
-    public Player(string name) : base(name) 
-    {
-        this.HP = 25;
-        MaxHP = HP;
-    }
-
-    public override int GetDamage()
-    {
-        return 2;
-    }
-
-    public override string GetDamageString()
-    {
-        return "PUNCH";
-    }
-}
-
-public enum ActionType { NOTHING, ATTACK }
+// ENUMS
 public enum PlayerType { User, Robot }
 public enum Faction { Ally, Enemy }
-public enum EnemyType { SKELETON, UNCODED_ONE }
+public enum EntityType { SKELETON, UNCODED_ONE, PLAYER }
