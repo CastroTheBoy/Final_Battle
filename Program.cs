@@ -1,6 +1,6 @@
-﻿// Console formatting
-using System.Reflection;
+﻿using System.Reflection;
 
+// Console formatting
 Console.BackgroundColor = ConsoleColor.Black;
 Console.ForegroundColor = ConsoleColor.Green;
 Console.Title = "The Final Battle";
@@ -17,23 +17,373 @@ for (int i = 0; i < 100; i++)
 
 Console.WriteLine(playerVictoryCounter);*/
 
-//GameManager game = new GameManager();
-//game.Run();
+GameManager game = new GameManager();
+game.Run();
 
+public static class ConsoleManager
+{ 
+    private static readonly int _consoleHeight = Console.WindowHeight;
+    private static readonly int _consoleWidth = Console.WindowWidth;
+    private static readonly int _logBorderWidth = (int)(_consoleWidth - _consoleWidth * 0.3);
+    private static readonly int _actionBorderHeigth = (int)(_consoleHeight - _consoleHeight * 0.4);
+    private static readonly int _entityDisplayHeight = 3;
+
+    // UI Builder
+    public static void BuildOuterBorder(
+    char widthBorders = '|', char heightBorder = '-')
+    {
+        for (int i = 0; i < _consoleWidth; i++)
+        {
+            for (int j = 0; j < _consoleHeight; j++)
+            {
+                Console.SetCursorPosition(i, j);
+                if (i == 0) { Console.Write(widthBorders); continue; }
+                if (i == _consoleWidth - 1)
+                { Console.Write(widthBorders); continue; }
+                if (j == 0) { Console.Write(heightBorder); continue; }
+                if (j == _consoleHeight - 1)
+                { Console.Write(heightBorder); continue; }
+            }
+        }
+    }
+    public static void BuildBattleLogBorder(
+    char heigthBorders = '|')
+    {
+        Console.SetCursorPosition(_logBorderWidth + 1, 1);
+        Console.Write("Battle log:");
+        for (int j = 0; j < _consoleHeight; j++)
+        {
+            Console.SetCursorPosition(_logBorderWidth, j);
+            Console.Write(heigthBorders);
+        }
+    }
+    public static void BuildActionBlockBorder(
+    char widthBorders = '-')
+    {
+        Console.SetCursorPosition(2, _actionBorderHeigth + 1);
+        Console.Write("Actions:");
+        for (int i = 1; i < _logBorderWidth; i++)
+        {
+            Console.SetCursorPosition(i, _actionBorderHeigth);
+            Console.Write(widthBorders);
+        }
+    }
+    public static void DisplayEnemyParty(List<Entity> entities)
+    {
+        Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight);
+        Console.Write("Enemies:");
+        for (int i = 0; i < entities.Count; i++)
+        {
+            Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + i);
+            Console.Write($"{entities[i].Name,-20} {entities[i].HP}/{entities[i].MaxHP}");
+        }
+    }
+    public static void DisplayAllyParty(List<Entity> entities)
+    {
+        Console.SetCursorPosition(3, _entityDisplayHeight);
+        Console.Write("Allies:");
+        for (int i = 0; i < entities.Count; i++)
+        {
+            Console.SetCursorPosition(3, _entityDisplayHeight + 1 + i);
+            Console.Write($"{entities[i].Name,-20} {entities[i].HP}/{entities[i].MaxHP}");
+        }
+    }
+    public static void Round(int currentRound, int maxRound)
+    {
+        Console.SetCursorPosition(1, 1);
+        Console.Write($"Round: {currentRound}/{maxRound}");
+    }
+    public static void DisplayActions()
+    {
+        Type? type = null;
+        for (int i = 0; i < ActionFactory.ActionTypes.Count; i++)
+        {
+            type = ActionFactory.ActionTypes[i];
+            Console.SetCursorPosition(2, _actionBorderHeigth + 2 + i);
+            Console.WriteLine($"{ActionFactory.ActionTypes.IndexOf(type)} - {ActionFactory.GetAction(type).Name()}");
+        }
+    }
+    public static void DisplayUserTypes()
+    {
+        for (int i = 0; i < Enum.GetValues(typeof(PlayerType)).Length; i++)
+        {
+            HighlightUserType(i,ConsoleColor.Black);
+        }
+    }
+    public static void HighlightAction(int actionIndex, ConsoleColor color)
+    {
+        Type? type = null;
+        type = ActionFactory.ActionTypes[actionIndex];
+        Console.SetCursorPosition(2, _actionBorderHeigth + 2 + actionIndex);
+        Console.BackgroundColor = color;
+        Console.WriteLine($"{ActionFactory.ActionTypes.IndexOf(type)} - {ActionFactory.GetAction(type).Name()}");
+    }
+    public static void HighlightUserType(int typeIndex, ConsoleColor color)
+    {
+        Array type = Enum.GetValues(typeof(PlayerType));
+        Console.SetCursorPosition(4, 2 + typeIndex);
+        Console.BackgroundColor = color;
+        Console.WriteLine($"{type.GetValue(typeIndex)}");
+    }
+    public static void HighlightEnemy(List<Entity> entities, int entityIndex, ConsoleColor color)
+    {
+        Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + entityIndex);
+        Console.BackgroundColor = color;
+        Console.Write($"{entities[entityIndex].Name,-20} {entities[entityIndex].MaxHP}/{entities[entityIndex].MaxHP}");
+    }
+    public static void ClearUserTypes()
+    {
+        for(int i = 0; i < Enum.GetValues(typeof(PlayerType)).Length; i++)
+        {
+            Console.SetCursorPosition(4, 2 + i);
+            for(int c = 0; c < Enum.GetValues(typeof(PlayerType)).GetValue(i).ToString().Length; c++)
+                Console.Write(" ");
+        }
+    }
+    public static void ClearEnemies(List<Entity> entities)
+    {
+        string s = null;
+        for (int i = 0; i < entities.Count; i++)
+        {
+            Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + i);
+            s = $"{entities[i].Name,-20} {entities[i].MaxHP}/{entities[i].MaxHP}";
+            for (int c = 0; c < s.Length; c++)
+                Console.Write(" ");
+        }
+    }
+    public static void ClearAllies(List<Entity> entities)
+    {
+        string s = null;
+        for (int i = 0; i < entities.Count; i++)
+        {
+            Console.SetCursorPosition(3, _entityDisplayHeight + 1 + i);
+            s = $"{entities[i].Name,-20} {entities[i].MaxHP}/{entities[i].MaxHP}";
+            for (int c = 0; c < s.Length; c++)
+                Console.Write(" ");
+        }
+    }
+
+    // Ask for methods
+    public static string AskForPlayerName()
+    {
+        ConsoleManager.BattleLog.AddMessage("What is Your name? ");
+        string? name;
+        do
+        {
+            name = Console.ReadLine();
+        }
+        while (name == null);
+        return name;
+    }
+    public static PlayerType AskForPlayerTypeWithHighlight(Faction faction)
+    {
+        ConsoleManager.DisplayUserTypes();
+        ConsoleManager.BattleLog.AddMessage($"Who should control the {faction.ToString()} party?");
+        int currentType = 0;
+        int previousType = 0;
+        Array types = Enum.GetValues(typeof(PlayerType));
+        ConsoleManager.HighlightUserType(currentType, ConsoleColor.Yellow);
+        while (true)
+        {
+            ConsoleKey key = Console.ReadKey(true).Key;
+            switch (key)
+            {
+                case ConsoleKey.DownArrow:
+                    if (currentType + 1 > types.Length - 1)
+                    {
+                        currentType = 0;
+                        break;
+                    }
+                    currentType++;
+                    break;
+                case ConsoleKey.UpArrow:
+                    if (currentType - 1 < 0)
+                    {
+                        currentType = types.Length - 1;
+                        break;
+                    }
+                    currentType--;
+                    break;
+                case ConsoleKey.Enter:
+                    ConsoleManager.HighlightUserType(currentType, ConsoleColor.Black);
+                    ConsoleManager.ClearUserTypes();
+                    return (PlayerType)types.GetValue(currentType);
+                default:
+                    continue;
+            }
+            ConsoleManager.HighlightUserType(currentType, ConsoleColor.Yellow);
+            ConsoleManager.HighlightUserType(previousType, ConsoleColor.Black);
+            previousType = currentType;
+        }
+    }
+    public static Type AskForActionWithHighlight()
+    {
+        ConsoleManager.BattleLog.AddMessage("What do You want to do?");
+        int currentAction = 0;
+        int previousAction = 0;
+        ConsoleManager.HighlightAction(currentAction, ConsoleColor.Yellow);
+        while (true)
+        {
+            ConsoleKey key = Console.ReadKey(true).Key;
+            switch (key)
+            {
+                case ConsoleKey.DownArrow:
+                    if(currentAction + 1 > ActionFactory.ActionTypes.Count - 1)
+                    {
+                        currentAction = 0;
+                        break;
+                    }
+                    currentAction++;
+                    break;
+                case ConsoleKey.UpArrow:
+                    if (currentAction - 1 < 0)
+                    {
+                        currentAction = ActionFactory.ActionTypes.Count - 1;
+                        break;
+                    }
+                    currentAction--;
+                    break;
+                case ConsoleKey.Enter:
+                    ConsoleManager.HighlightAction(currentAction, ConsoleColor.Black);
+                    return ActionFactory.ActionTypes[currentAction];
+                default:
+                    continue;
+            }
+            ConsoleManager.HighlightAction(currentAction, ConsoleColor.Yellow);
+            ConsoleManager.HighlightAction(previousAction, ConsoleColor.Black);
+            previousAction = currentAction;
+        }
+    }
+    public static Entity AskForTargetChoiceWithHighlight(List<Entity> targets)
+    {
+        ConsoleManager.BattleLog.AddMessage($"Please select a target.");
+        int currentEntity = 0;
+        int previousEntity = 0;
+        ConsoleManager.HighlightEnemy(targets, currentEntity, ConsoleColor.Yellow);
+        while (true)
+        {
+            ConsoleKey key = Console.ReadKey(true).Key;
+            switch (key)
+            {
+                case ConsoleKey.DownArrow:
+                    if (currentEntity + 1 > targets.Count - 1)
+                    {
+                        currentEntity = 0;
+                        break;
+                    }
+                    currentEntity++;
+                    break;
+                case ConsoleKey.UpArrow:
+                    if (currentEntity - 1 < 0)
+                    {
+                        currentEntity = targets.Count - 1;
+                        break;
+                    }
+                    currentEntity--;
+                    break;
+                case ConsoleKey.Enter:
+                    ConsoleManager.HighlightEnemy(targets, currentEntity, ConsoleColor.Black);
+                    ConsoleManager.ClearUserTypes();
+                    return targets[currentEntity];
+                default:
+                    continue;
+            }
+            ConsoleManager.HighlightEnemy(targets, currentEntity, ConsoleColor.Yellow);
+            ConsoleManager.HighlightEnemy(targets, previousEntity, ConsoleColor.Black);
+            previousEntity = currentEntity;
+        }
+    }
+
+    // Basic methods
+    public static void Turn(string name) =>
+        ConsoleManager.BattleLog.AddMessage($"It is {name}'s turn...");
+    public static void BlankLine() =>
+        Console.WriteLine();
+    public static void GameStart() =>
+        ConsoleManager.BattleLog.AddMessage("Welcome to the \"Final Battle\".");
+
+    public static class BattleLog
+    {
+        public static List<string> _battleLogMessages = new List<string>();
+        public static int _battleLogMaxCharacters = (_consoleHeight - 2) * (_consoleWidth - _logBorderWidth - 3);
+        public static int _battleLogLineCharCount = (_consoleWidth - _logBorderWidth - 3);
+
+        public static void AddMessage(string input)
+        {
+            _battleLogMessages.Add(input);
+            WriteLog();
+        }
+        public static void WriteLog()
+        {
+            ClearLog();
+            string? s = null;
+            int newLineCounter = 0;
+            int currentRowIndex = 0;
+            int currentMesage = 0;
+            for (int i = GetMinMessageIndex(); i < _battleLogMessages.Count; i++)
+            {
+                Console.SetCursorPosition(_logBorderWidth + 1, 3 + newLineCounter + currentMesage);
+                currentRowIndex = 0;
+                s = _battleLogMessages[i];
+                for(int c = 0; c < s.Length; c++)
+                {
+                    if (currentRowIndex > _consoleWidth - _logBorderWidth - 3)
+                    {
+                        newLineCounter++;
+                        Console.SetCursorPosition(_logBorderWidth + 1, 3 + newLineCounter + currentMesage);
+                        currentRowIndex = 0;
+                    }
+                    Console.Write(s[c]);
+                    currentRowIndex++;
+                }
+                newLineCounter++;
+                currentMesage++;
+            }
+        }
+        public static void ClearLog()
+        {
+            for(int i = 2; i < _consoleHeight - 1; i++)
+                for(int j = _logBorderWidth + 1; j < _consoleWidth - 1; j++)
+                {
+                    Console.SetCursorPosition(j,i);
+                    Console.Write(" ");
+                }
+        }
+        public static int GetMinMessageIndex()
+        {
+            int runningTotal = 0;
+            for(int i = _battleLogMessages.Count - 1; i >= 0; i--)
+            {
+                runningTotal += (int)Math.Ceiling(((double)_battleLogMessages[i].Length / (double)_battleLogLineCharCount)) * _battleLogLineCharCount ;
+                runningTotal += _battleLogLineCharCount;
+                if (runningTotal >= _battleLogMaxCharacters)
+                    return i + 1;
+            }
+            return 0;
+        }
+    }
+}
 public class GameManager
 {
     public EntityManager Entities { get; }
-    public PlayerType PlayerPartyMode{ get; }
-    public PlayerType EnemyPartyMode{ get; }
+    public PlayerType PlayerPartyMode { get; }
+    public PlayerType EnemyPartyMode { get; }
     private GameUserManager _gameUserManager;
     private Dictionary<int, List<Entity>> _roundEnemyRoster =
         new Dictionary<int, List<Entity>>();
     private int _currentRound = 0;
     private int _maxRounds = 2;
 
+    static GameManager()
+    {
+        Console.CursorVisible = false;
+        CallInitialUI();
+    }
+
     public GameManager(PlayerType ally, PlayerType enemy, string playerName)
     {
-        Entities = new EntityManager(playerName);
+        Entities = new EntityManager();
+        Entities.AddEntity(new Entity(EntityType.PLAYER, playerName));
         PlayerPartyMode = ally;
         EnemyPartyMode = enemy;
         _gameUserManager = new GameUserManager(Entities);
@@ -41,12 +391,12 @@ public class GameManager
     }
 
     public GameManager() : this(
-        ConsoleManager.AskForPlayerType(Faction.Ally),
-        ConsoleManager.AskForPlayerType(Faction.Enemy),
+        ConsoleManager.AskForPlayerTypeWithHighlight(Faction.Ally),
+        ConsoleManager.AskForPlayerTypeWithHighlight(Faction.Enemy),
         ConsoleManager.AskForPlayerName())
     { }
     
-    private void InitializeEnemyRoster()
+    public void InitializeEnemyRoster()
     {
         for (int i = 0; i < 3; i++) 
         {
@@ -71,7 +421,7 @@ public class GameManager
         }
     }
 
-    private void SetUpRoundRoster()
+    public void SetUpRoundRoster()
     {
         foreach(Entity e in _roundEnemyRoster[_currentRound])
             Entities.AddEntity(e);
@@ -83,10 +433,10 @@ public class GameManager
 
     public bool Run()
     {
+        bool moveToNextRound = false;
         SetUpRoundRoster();
         while (true) {
-            Console.WriteLine($"Current round {_currentRound + 1}/" +
-                $"{_maxRounds + 1}");
+            moveToNextRound = false;
             foreach (Entity entity in Entities.GetPlayerParty())
             {
                 ExecuteTurn(entity, PlayerPartyMode);
@@ -94,25 +444,27 @@ public class GameManager
                 {
                     if (IsFinalRound())
                     {
-                        Console.WriteLine("All enemies have been defeated! You Win!");
+                        ConsoleManager.BattleLog.AddMessage("All enemies have been defeated! You Win!");
                         return true;
                     }
                     else
                     {
                         _currentRound++;
+                        moveToNextRound = true;
                         SetUpRoundRoster();
-                        Console.WriteLine($"All enemies have been defeated in " +
-                            $"round {_currentRound}.\nProceeding to round " +
+                        ConsoleManager.BattleLog.AddMessage($"All enemies have been defeated in " +
+                            $"round {_currentRound}. Proceeding to round " +
                             $"{_currentRound + 1}/{_maxRounds + 1}.");
                     }
                 }
             }
+            if(moveToNextRound) continue;
             foreach (Entity entity in Entities.GetEnemyParty())
             {
                 ExecuteTurn(entity, EnemyPartyMode);
                 if (PlayersCleared())
                 {
-                    Console.WriteLine("You have been slain!\nGAME OVER...");
+                    ConsoleManager.BattleLog.AddMessage("You have been slain! GAME OVER...");
                     return false;
                 }
             }
@@ -121,9 +473,26 @@ public class GameManager
 
     private void ExecuteTurn(Entity entity, PlayerType type)
     {
+        CallTurnUI();
         ConsoleManager.Turn(entity.Name);
         _gameUserManager.DoTurn(entity, type);
-        ConsoleManager.BlankLine();
+    }
+
+    public static void CallInitialUI()
+    {
+        ConsoleManager.BuildOuterBorder();
+        ConsoleManager.BuildBattleLogBorder();
+        ConsoleManager.BuildActionBlockBorder();
+    }
+
+    public void CallTurnUI()
+    {
+        ConsoleManager.ClearEnemies(Entities.GetEnemyParty());
+        ConsoleManager.DisplayEnemyParty(Entities.GetEnemyParty());
+        ConsoleManager.ClearAllies(Entities.GetPlayerParty());
+        ConsoleManager.DisplayAllyParty(Entities.GetPlayerParty());
+        ConsoleManager.DisplayActions();
+        ConsoleManager.Round(_currentRound + 1, _maxRounds + 1);
     }
 }
 
@@ -135,6 +504,8 @@ public class GameUserManager
 
     public void DoTurn(Entity entity, PlayerType playerType)
     {
+        //if (playerType == PlayerType.Robot)
+        //    Thread.Sleep(500);
         IAction newAction = GetAction(playerType);
         switch (newAction.GetType().GetInterfaces())
         {
@@ -158,7 +529,7 @@ public class GameUserManager
         return type switch
         {
             PlayerType.Robot => entities[0],
-            PlayerType.User => ConsoleManager.AskForTargetChoice(entities),
+            PlayerType.User => ConsoleManager.AskForTargetChoiceWithHighlight(entities),
             _ => throw new NotSupportedException()
         };
     }
@@ -168,20 +539,19 @@ public class GameUserManager
         return type switch
         {
             PlayerType.Robot => ActionFactory.GetAction(typeof(ActionAttack)),
-            PlayerType.User => ActionFactory.GetAction(ConsoleManager.AskForAction()),
+            PlayerType.User => ActionFactory.GetAction(ConsoleManager.AskForActionWithHighlight()),
             _ => throw new NotSupportedException()
         };
     }
 }
-
+ 
 public class EntityManager
 {
     private Dictionary<Guid, Entity> _entityDict;
     
-    public EntityManager(string playerName)
+    public EntityManager()
     {
         _entityDict = new Dictionary<Guid, Entity>();
-        AddEntity(new Entity(EntityType.PLAYER));
     }
 
     public List<Entity> GetPlayerParty() => GetFactionParty(Faction.Ally);
@@ -218,94 +588,10 @@ public class EntityManager
         entity.EntityDied += OnEntityDeath;
         _entityDict.Add(entity.UniqueID, entity);
     }
-    private void OnEntityDeath(Entity entity) => 
+    private void OnEntityDeath(Entity entity)
+    {
+        ConsoleManager.ClearEnemies(GetEnemyParty());
         _entityDict.Remove(entity.UniqueID);
-}
-
-public static class ConsoleManager
-{
-    public static void Turn(string name) => 
-        Console.WriteLine($"It is {name}'s turn...");
-    public static void BlankLine() =>
-        Console.WriteLine();
-    public static void GameStart() =>
-        Console.WriteLine("Welcome to the \"Final Battle\".");
-    public static string AskForPlayerName()
-    {
-        Console.Write("What is Your name? ");
-        string? name;
-        do
-        {
-            name = Console.ReadLine();
-        }
-        while (name == null);
-        return name;
-    }   
-    public static PlayerType AskForPlayerType(Faction faction)
-    {
-        Console.WriteLine($"Who should control the {faction.ToString()} party?");
-        foreach (PlayerType i in Enum.GetValues(typeof(PlayerType)))
-            Console.WriteLine($"{(int)i} - {i}");
-        string? input;
-        int enumLength = Enum.GetValues(typeof(PlayerType)).Length;
-        while (true)
-        {
-            input = Console.ReadLine();
-            if (int.TryParse(input, out int value))
-            {
-                if (value >= 0 && value < enumLength)
-                    return (PlayerType)value;
-                else
-                    Console.WriteLine("Please select a valid choice!");
-            }
-            else
-                Console.WriteLine("Please select a valid choice!");
-        }
-    }
-    public static Type AskForAction()
-    {
-        Console.WriteLine("What do You want to do?");
-        foreach (Type i in ActionFactory.ActionTypes)
-            Console.WriteLine($"{ActionFactory.ActionTypes.IndexOf(i)} - {i}");
-        string? input;
-        int enumLength = ActionFactory.ActionTypes.Count;
-        while (true)
-        {
-            input = Console.ReadLine();
-            if (int.TryParse(input, out int value))
-            {
-                if (value >= 0 && value < enumLength)
-                    return ActionFactory.ActionTypes[value];
-                else
-                    Console.WriteLine("Please select a valid choice!");
-            }
-            else
-                Console.WriteLine("Please select a valid choice!");
-        }
-    }
-    public static Entity AskForTargetChoice(List<Entity> targets)
-    {
-        int i = 0;
-        string? input;
-        Console.WriteLine("List of possible targets: ");
-        foreach (Entity entity in targets)
-        {
-            Console.WriteLine($"{i} - {entity.Name}");
-            i++;
-        }
-        while (true)
-        {
-            input = Console.ReadLine();
-            if (int.TryParse(input, out int value))
-            {
-                if (value >= 0 && value < targets.Count)
-                    return targets[value];
-                else
-                    Console.WriteLine("Please select a valid choice!");
-            }
-            else
-                Console.WriteLine("Please select a valid choice!");
-        }
     }
 }
 
@@ -313,6 +599,7 @@ public static class ConsoleManager
 public interface IAction
 {
     public void ExecuteAction(Entity source, Entity target);
+    public string Name();
 }
 
 public interface ITargetEnemy { }
@@ -326,27 +613,32 @@ public class ActionAttack : IAction, ITargetEnemy
     {
         int damage = source.GetDamage();
         string attackName = source.GetDamageString();
-        Console.WriteLine($"{source.Name} used {attackName}" +
+        ConsoleManager.BattleLog.AddMessage($"{source.Name} used {attackName}" +
             $" on {target.Name}");
-        Console.WriteLine($"{attackName} dealt {damage} damage to " +
+        ConsoleManager.BattleLog.AddMessage($"{attackName} dealt {damage} damage to " +
             $"{target.Name}");
         target.DamageHealth(damage);
     }
+    public string Name() => "Attack";
 }
 
 public class ActionNothing : IAction, ITargetSelf
 { 
-    public void ExecuteAction(Entity source, Entity target) => 
-        Console.WriteLine($"{source.Name} did NOTHING");
+    public void ExecuteAction(Entity source, Entity target) =>
+        ConsoleManager.BattleLog.AddMessage($"{source.Name} did NOTHING");
+
+    public string Name() => "Do nothing";
 }
 
 public class ActionKill : IAction, ITargetEnemy
 {
     public void ExecuteAction(Entity source, Entity target)
     {
-        Console.WriteLine($"{target.Name} was disintegrated!");
+        ConsoleManager.BattleLog.AddMessage($"{target.Name} was disintegrated!");
         target.Kill();
     }
+
+    public string Name() => "Kill";
 }
 
 public static class ActionFactory
@@ -362,7 +654,9 @@ public static class ActionFactory
 
     public static IAction GetAction(Type type)
     {
-        object a_Context = Activator.CreateInstance(type);
+        object? a_Context = Activator.CreateInstance(type);
+        if (a_Context == null)
+            throw new ArgumentNullException();
         return (IAction)a_Context;
     }
 }
@@ -388,7 +682,7 @@ public class Entity
     public Faction Faction { get; }
     public EntityType Type { get; }
     public Guid UniqueID { get; }
-    public event Action<Entity> EntityDied;
+    public event Action<Entity> ?EntityDied;
 
     public Entity (EntityType type)
     {
@@ -397,6 +691,15 @@ public class Entity
         Faction = _entityStats[Type].Faction;
         MaxHP = HP;
         Name = type.ToString();
+        UniqueID = Guid.NewGuid();
+    }
+    public Entity (EntityType type, string name)
+    {
+        Type = type;
+        HP = _entityStats[Type].HP;
+        Faction = _entityStats[Type].Faction;
+        MaxHP = HP;
+        Name = name;
         UniqueID = Guid.NewGuid();
     }
 
@@ -412,16 +715,16 @@ public class Entity
             return;
         }
         DeathMessage();
-        EntityDied.Invoke(this);
+        EntityDied?.Invoke(this);
     }
 
     private void DamageMessage()
     {
-        Console.WriteLine($"{this.Name} is now at {this.HP} / " +
+        ConsoleManager.BattleLog.AddMessage($"{this.Name} is now at {this.HP} / " +
             $"{this.MaxHP}");
     }
     private void DeathMessage() =>
-        Console.WriteLine($"{this.Name} has been defeated!");
+        ConsoleManager.BattleLog.AddMessage($"{this.Name} has been defeated!");
     public void Kill() => this.DamageHealth(10000);
 }
 
