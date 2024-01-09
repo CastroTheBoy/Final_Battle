@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using System.Text;
 
 // Console formatting
 Console.BackgroundColor = ConsoleColor.Black;
@@ -20,16 +21,170 @@ Console.WriteLine(playerVictoryCounter);*/
 GameManager game = new GameManager();
 game.Run();
 
-public static class ConsoleManager
-{ 
-    private static readonly int _consoleHeight = Console.WindowHeight;
-    private static readonly int _consoleWidth = Console.WindowWidth;
-    private static readonly int _logBorderWidth = (int)(_consoleWidth - _consoleWidth * 0.3);
-    private static readonly int _actionBorderHeigth = (int)(_consoleHeight - _consoleHeight * 0.4);
-    private static readonly int _entityDisplayHeight = 3;
+public class UIManager
+{
+    private static int _consoleHeight { get => Console.WindowHeight; }
+    private static int _consoleWidth { get => Console.WindowWidth; }
+    private static int _logBorderWidth { get => (int)(_consoleWidth - _consoleWidth * 0.3); }
+    private static int _actionBorderHeigth { get => (int)(_consoleHeight - _consoleHeight * 0.4); }
+    private static int _entityDisplayHeight = 3;
 
-    // UI Builder
-    public static void BuildOuterBorder(
+    // Borders
+    public static void BuildBorders()
+    {
+        char[,] grid = new char[_consoleWidth, _consoleHeight];
+        Console.Clear();
+        BuildOuterBorder(grid);
+        BuildBattleLogBorder(grid, "Event log:");
+        BuildActionBlockBorder(grid, "Actions:");
+        EventLog.WriteLog(grid);
+        DrawGrid(grid);
+    }
+
+    private static void BuildOuterBorder(char[,] grid,
+    char widthBorders = '|', char heightBorder = '-')
+    {
+        for (int i = 0; i < _consoleWidth; i++)
+        {
+            for (int j = 0; j < _consoleHeight; j++)
+            {
+                if (i == 0) { grid[i, j] = widthBorders; continue; }
+                if (i == _consoleWidth - 1)
+                { grid[i, j] = widthBorders; continue; }
+                if (j == 0) { grid[i, j] = heightBorder; continue; }
+                if (j == _consoleHeight - 1)
+                { grid[i, j] = heightBorder; continue; }
+                grid[i, j] = ' ';
+            }
+        }
+    }
+    private static void BuildBattleLogBorder(char[,] grid, string header,
+    char heigthBorders = '|')
+    {
+        string name = header;
+        try
+        {
+            for (int i = 0; i < name.Length; i++)
+                grid[_logBorderWidth + 1 + i, 1] = name[i];
+        }
+        catch (IndexOutOfRangeException e) { }
+        for (int j = 0; j < _consoleHeight; j++)
+            grid[_logBorderWidth, j] = heigthBorders;
+    }
+    private static void BuildActionBlockBorder(char[,] grid, string header, char widthBorders = '-')
+    {
+        string name = header;
+        try
+        {
+            for (int i = 0; i < name.Length; i++)
+                grid[1 + i, _actionBorderHeigth + 1] = name[i];
+        }
+        catch (IndexOutOfRangeException e) { }
+        for (int i = 1; i < _logBorderWidth; i++)
+            grid[i, _actionBorderHeigth] = widthBorders;
+    }
+    private static void DrawGrid(char[,] grid)
+    {
+        Console.SetCursorPosition(0, 0);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < _consoleHeight; i++)
+        {
+            for (int j = 0; j < _consoleWidth; j++)
+            {
+                sb.Append(grid[j, i]);
+            }
+            if (i < _consoleHeight - 1)
+                sb.AppendLine();
+        }
+        Console.Write(sb.ToString());
+    }
+
+    public static class EventLog
+    {
+        private static List<string> _eventLogMessages = new List<string>();
+        private static int _eventLogMaxCharacters { get => (_consoleHeight - 2) * (_consoleWidth - _logBorderWidth - 3); }
+        private static int _eventLogLineCharCount { get => (_consoleWidth - _logBorderWidth - 3); }
+
+        public static void AddMessage(string input)
+        {
+            _eventLogMessages.Add(input);
+        }
+        public static void WriteLog(char[,] grid)
+        {
+            string? s = null;
+            int newLineCounter = 0;
+            int currentRowIndex = 0;
+            int currentMesage = 0;
+            for (int i = GetMinMessageIndex(); i < _eventLogMessages.Count; i++)
+            {
+                currentRowIndex = 0;
+                s = _eventLogMessages[i];
+                for (int c = 0; c < s.Length; c++)
+                {
+                    if (currentRowIndex > _eventLogLineCharCount)
+                    {
+                        newLineCounter++;
+                        currentRowIndex = 0;
+                    }
+                    grid[_logBorderWidth + 1 + currentRowIndex, 3 + newLineCounter + currentMesage] = s[c];
+                    currentRowIndex++;
+                }
+                newLineCounter++;
+                currentMesage++;
+            }
+        }
+        private static int GetMinMessageIndex()
+        {
+            int runningTotal = 0;
+            for (int i = _eventLogMessages.Count - 1; i >= 0; i--)
+            {
+                runningTotal += (int)Math.Ceiling(((double)_eventLogMessages[i].Length / (double)_eventLogLineCharCount)) * _eventLogLineCharCount;
+                runningTotal += _eventLogLineCharCount;
+                if (runningTotal >= _eventLogMaxCharacters)
+                    return i + 1;
+            }
+            return 0;
+        }
+    }
+}
+
+public static class ConsoleManager
+{
+    private static int _consoleHeight { get => Console.WindowHeight; }
+    private static int _consoleWidth { get => Console.WindowWidth; }
+    private static int _logBorderWidth { get => (int)(_consoleWidth - _consoleWidth * 0.3); }
+    private static int _actionBorderHeigth { get => (int)(_consoleHeight - _consoleHeight * 0.4); }
+    private static int _entityDisplayHeight = 3;
+
+    public static void CheckRedraw()
+    {
+        Console.CursorVisible = false;
+        Console.BackgroundColor = ConsoleColor.Black;
+        int cw = Console.WindowWidth;
+        int ch = Console.WindowHeight;
+        while (true)
+        {
+            if (cw != Console.WindowWidth || ch != Console.WindowHeight)
+            {
+                BuildBorders();
+                cw = Console.WindowWidth;
+                ch = Console.WindowHeight;
+            }
+        }
+    }
+
+    // Borders
+    public static void BuildBorders()
+    {
+        Console.BackgroundColor = ConsoleColor.Black;
+        Console.CursorVisible = false;
+        Console.Clear();
+        BuildOuterBorder();
+        BuildBattleLogBorder();
+        BuildActionBlockBorder();
+    }
+
+    private static void BuildOuterBorder(
     char widthBorders = '|', char heightBorder = '-')
     {
         for (int i = 0; i < _consoleWidth; i++)
@@ -46,7 +201,7 @@ public static class ConsoleManager
             }
         }
     }
-    public static void BuildBattleLogBorder(
+    private static void BuildBattleLogBorder(
     char heigthBorders = '|')
     {
         Console.SetCursorPosition(_logBorderWidth + 1, 1);
@@ -57,7 +212,7 @@ public static class ConsoleManager
             Console.Write(heigthBorders);
         }
     }
-    public static void BuildActionBlockBorder(
+    private static void BuildActionBlockBorder(
     char widthBorders = '-')
     {
         Console.SetCursorPosition(2, _actionBorderHeigth + 1);
@@ -100,7 +255,7 @@ public static class ConsoleManager
         {
             type = ActionFactory.ActionTypes[i];
             Console.SetCursorPosition(2, _actionBorderHeigth + 2 + i);
-            Console.WriteLine($"{ActionFactory.ActionTypes.IndexOf(type)} - {ActionFactory.GetAction(type).Name()}");
+            Console.WriteLine($" {ActionFactory.GetAction(type).Name()}");
         }
     }
     public static void DisplayUserTypes()
@@ -116,7 +271,7 @@ public static class ConsoleManager
         type = ActionFactory.ActionTypes[actionIndex];
         Console.SetCursorPosition(2, _actionBorderHeigth + 2 + actionIndex);
         Console.BackgroundColor = color;
-        Console.WriteLine($"{ActionFactory.ActionTypes.IndexOf(type)} - {ActionFactory.GetAction(type).Name()}");
+        Console.WriteLine($" {ActionFactory.GetAction(type).Name()}");
     }
     public static void HighlightUserType(int typeIndex, ConsoleColor color)
     {
@@ -140,16 +295,14 @@ public static class ConsoleManager
                 Console.Write(" ");
         }
     }
-    public static void ClearEnemies(List<Entity> entities)
+    public static void ClearEnemies()
     {
-        string s = null;
-        for (int i = 0; i < entities.Count; i++)
-        {
-            Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + i);
-            s = $"{entities[i].Name,-20} {entities[i].MaxHP}/{entities[i].MaxHP}";
-            for (int c = 0; c < s.Length; c++)
+        for (int i = _entityDisplayHeight + 1; i < _actionBorderHeigth - 2; i++)
+            for (int j = _logBorderWidth - 30; j < _logBorderWidth; j++)
+            {
+                Console.SetCursorPosition(j, i);
                 Console.Write(" ");
-        }
+            }
     }
     public static void ClearAllies(List<Entity> entities)
     {
@@ -161,6 +314,15 @@ public static class ConsoleManager
             for (int c = 0; c < s.Length; c++)
                 Console.Write(" ");
         }
+    }
+    public static void ClearAllies()
+    {
+        for (int i = _entityDisplayHeight + 1; i < _actionBorderHeigth - 2; i++)
+            for (int j = 3; j < 40; j++)
+            {
+                Console.SetCursorPosition(j, i);
+                Console.Write(" ");
+            }
     }
 
     // Ask for methods
@@ -377,7 +539,7 @@ public class GameManager
     static GameManager()
     {
         Console.CursorVisible = false;
-        CallInitialUI();
+        ConsoleManager.BuildBorders();
     }
 
     public GameManager(PlayerType ally, PlayerType enemy, string playerName)
@@ -433,6 +595,8 @@ public class GameManager
 
     public bool Run()
     {
+        Thread resizeListener = new Thread(ConsoleManager.CheckRedraw);
+        resizeListener.Start();
         bool moveToNextRound = false;
         SetUpRoundRoster();
         while (true) {
@@ -473,24 +637,28 @@ public class GameManager
 
     private void ExecuteTurn(Entity entity, PlayerType type)
     {
-        CallTurnUI();
+        CallTurnUI(entity);
         ConsoleManager.Turn(entity.Name);
         _gameUserManager.DoTurn(entity, type);
     }
 
-    public static void CallInitialUI()
-    {
-        ConsoleManager.BuildOuterBorder();
-        ConsoleManager.BuildBattleLogBorder();
-        ConsoleManager.BuildActionBlockBorder();
-    }
-
     public void CallTurnUI()
     {
-        ConsoleManager.ClearEnemies(Entities.GetEnemyParty());
+        ConsoleManager.BuildBorders();
+        ConsoleManager.ClearEnemies();
         ConsoleManager.DisplayEnemyParty(Entities.GetEnemyParty());
-        ConsoleManager.ClearAllies(Entities.GetPlayerParty());
+        ConsoleManager.ClearAllies();
         ConsoleManager.DisplayAllyParty(Entities.GetPlayerParty());
+        ConsoleManager.DisplayActions();
+        ConsoleManager.Round(_currentRound + 1, _maxRounds + 1);
+    }
+    public void CallTurnUI(Entity entity)
+    {
+        ConsoleManager.BuildBorders();
+        ConsoleManager.ClearEnemies();
+        ConsoleManager.DisplayEnemyParty(Entities.GetEnemiesForEntity(entity));
+        ConsoleManager.ClearAllies();
+        ConsoleManager.DisplayAllyParty(Entities.GetAlliesForEntity(entity));
         ConsoleManager.DisplayActions();
         ConsoleManager.Round(_currentRound + 1, _maxRounds + 1);
     }
@@ -504,8 +672,6 @@ public class GameUserManager
 
     public void DoTurn(Entity entity, PlayerType playerType)
     {
-        //if (playerType == PlayerType.Robot)
-        //    Thread.Sleep(500);
         IAction newAction = GetAction(playerType);
         switch (newAction.GetType().GetInterfaces())
         {
@@ -590,7 +756,6 @@ public class EntityManager
     }
     private void OnEntityDeath(Entity entity)
     {
-        ConsoleManager.ClearEnemies(GetEnemyParty());
         _entityDict.Remove(entity.UniqueID);
     }
 }
