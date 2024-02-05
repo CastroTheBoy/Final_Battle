@@ -1,6 +1,4 @@
-﻿using System.Reflection;
-
-// Console formatting
+﻿// Console formatting
 Console.BackgroundColor = ConsoleColor.Black;
 Console.ForegroundColor = ConsoleColor.Green;
 Console.Title = "The Final Battle";
@@ -27,6 +25,15 @@ public static class ConsoleManager
     private static int _logBorderWidth { get => (int)(_consoleWidth - _consoleWidth * 0.3); }
     private static int _actionBorderHeigth { get => (int)(_consoleHeight - _consoleHeight * 0.4); }
     private static int _entityDisplayHeight = 3;
+    private static Dictionary<SelectionArea, ConsoleAreaCoordinates> _areaCoords = new Dictionary<SelectionArea, ConsoleAreaCoordinates>();
+
+    static ConsoleManager()
+    {
+        _areaCoords.Add(SelectionArea.PartyLeft, new ConsoleAreaCoordinates(1, _actionBorderHeigth, 1, (int)(_logBorderWidth / 2)));
+        _areaCoords.Add(SelectionArea.PartyRight, new ConsoleAreaCoordinates(1, _actionBorderHeigth, (int)(_logBorderWidth / 2), _logBorderWidth));
+        _areaCoords.Add(SelectionArea.ActionColumnOne, new ConsoleAreaCoordinates(_actionBorderHeigth,_consoleHeight,1, (int)(_logBorderWidth / 2)));
+        _areaCoords.Add(SelectionArea.ActionColumnTwo, new ConsoleAreaCoordinates(_actionBorderHeigth,_consoleHeight, (int)(_logBorderWidth / 2), _logBorderWidth));
+    }
 
     // Borders
     public static void BuildBorders()
@@ -78,73 +85,25 @@ public static class ConsoleManager
             Console.Write(widthBorders);
         }
     }
-    public static void DisplayEnemyParty(List<Entity> entities)
-    {
-        Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight);
-        Console.Write("Enemies:");
-        for (int i = 0; i < entities.Count; i++)
-        {
-            Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + i);
-            Console.Write($"{entities[i].Name,-20} {entities[i].HP}/{entities[i].MaxHP}");
-        }
-    }
-    public static void DisplayAllyParty(List<Entity> entities)
-    {
-        Console.SetCursorPosition(3, _entityDisplayHeight);
-        Console.Write("Allies:");
-        for (int i = 0; i < entities.Count; i++)
-        {
-            Console.SetCursorPosition(3, _entityDisplayHeight + 1 + i);
-            Console.Write($"{entities[i].Name,-20} {entities[i].HP}/{entities[i].MaxHP}");
-        }
-    }
     public static void Round(int currentRound, int maxRound)
     {
         Console.SetCursorPosition(1, 1);
         Console.Write($"Round: {currentRound}/{maxRound}");
     }
-    public static void DisplayActions()
+    public static void DisplayItems(SelectionArea area, params string[] items)
     {
-        Type? type = null;
-        for (int i = 0; i < ActionFactory.ActionTypes.Count; i++)
+        ConsoleAreaCoordinates c = _areaCoords[area];
+        for (int i = 0; i < items.Length; i++)
         {
-            type = ActionFactory.ActionTypes[i];
-            Console.SetCursorPosition(2, _actionBorderHeigth + 2 + i);
-            Console.WriteLine($" {ActionFactory.GetAction(type).Name()}");
+            Console.SetCursorPosition(c.WidthStart, c.HeightStart + i);
+            Console.Write($"{items[i]}");
         }
     }
-    public static void DisplayUserTypes()
+    public static void ClearArea(SelectionArea area)
     {
-        for (int i = 0; i < Enum.GetValues(typeof(PlayerType)).Length; i++)
-        {
-            HighlightUserType(i,ConsoleColor.Black);
-        }
-    }
-    public static void HighlightAction(int actionIndex, ConsoleColor color)
-    {
-        Type? type = null;
-        type = ActionFactory.ActionTypes[actionIndex];
-        Console.SetCursorPosition(2, _actionBorderHeigth + 2 + actionIndex);
-        Console.BackgroundColor = color;
-        Console.WriteLine($" {ActionFactory.GetAction(type).Name()}");
-    }
-    public static void HighlightUserType(int typeIndex, ConsoleColor color)
-    {
-        Array type = Enum.GetValues(typeof(PlayerType));
-        Console.SetCursorPosition(4, 2 + typeIndex);
-        Console.BackgroundColor = color;
-        Console.WriteLine($"{type.GetValue(typeIndex)}");
-    }
-    public static void HighlightEnemy(List<Entity> entities, int entityIndex, ConsoleColor color)
-    {
-        Console.SetCursorPosition(_logBorderWidth - 30, _entityDisplayHeight + 1 + entityIndex);
-        Console.BackgroundColor = color;
-        Console.Write($"{entities[entityIndex].Name,-20} {entities[entityIndex].MaxHP}/{entities[entityIndex].MaxHP}");
-    }
-    public static void ClearBattleScreen()
-    {
-        for (int i = 1; i < _actionBorderHeigth ; i++)
-            for (int j = 1; j < _logBorderWidth; j++)
+        ConsoleAreaCoordinates c = _areaCoords[area];
+        for (int i = c.HeightStart; i < c.HeightEnd; i++)
+            for (int j = c.WidthStart; j < c.WidthEnd; j++)
             {
                 Console.SetCursorPosition(j, i);
                 Console.Write(" ");
@@ -152,6 +111,54 @@ public static class ConsoleManager
     }
 
     // Ask for methods
+
+    public static string AskForChoice(SelectionArea area, ConsoleColor highlightColor = ConsoleColor.Yellow, params string[] displayItems)
+    {
+        int currentAction = 0;
+        int previousAction = 0;
+        HighlightAction(currentAction, ConsoleColor.Yellow);
+        while (true)
+        {
+            ConsoleKey key = Console.ReadKey(true).Key;
+            switch (key)
+            {
+                case ConsoleKey.DownArrow:
+                    if (currentAction + 1 > ActionFactory.ActionTypes.Count - 1)
+                    {
+                        currentAction = 0;
+                        break;
+                    }
+                    currentAction++;
+                    break;
+                case ConsoleKey.UpArrow:
+                    if (currentAction - 1 < 0)
+                    {
+                        currentAction = ActionFactory.ActionTypes.Count - 1;
+                        break;
+                    }
+                    currentAction--;
+                    break;
+                case ConsoleKey.Enter:
+                    HighlightAction(currentAction, ConsoleColor.Black);
+                    return ActionFactory.ActionTypes[currentAction];
+                default:
+                    continue;
+            }
+            HighlightAction(currentAction, ConsoleColor.Yellow);
+            HighlightAction(previousAction, ConsoleColor.Black);
+            previousAction = currentAction;
+        }
+    }
+
+    public static void DisplayList(SelectionArea area)
+    {
+        switch (area)
+        {
+            case SelectionArea.PartyLeft:
+
+        }
+    }
+
     public static string AskForPlayerName()
     {
         ConsoleManager.BattleLog.AddMessage("What is Your name? ");
@@ -351,6 +358,9 @@ public static class ConsoleManager
         }
     }
 }
+
+public record ConsoleAreaCoordinates(int HeightStart, int HeightEnd, int WidthStart, int WidthEnd);
+
 public class GameManager
 {
     public EntityManager Entities { get; }
@@ -587,12 +597,7 @@ public interface IAction
     public string Name();
 }
 
-public interface ITargetEnemy { }
-public interface ITargetSelf { }
-public interface ITargetAlly { }
-public interface ITargetMuliple { }
-
-public class ActionAttack : IAction, ITargetEnemy
+public class ActionAttack : IAction
 {
     public void ExecuteAction(Entity source, Entity target)
     {
@@ -607,7 +612,7 @@ public class ActionAttack : IAction, ITargetEnemy
     public string Name() => "Attack";
 }
 
-public class ActionNothing : IAction, ITargetSelf
+public class ActionNothing : IAction
 { 
     public void ExecuteAction(Entity source, Entity target) =>
         ConsoleManager.BattleLog.AddMessage($"{source.Name} did NOTHING");
@@ -615,7 +620,7 @@ public class ActionNothing : IAction, ITargetSelf
     public string Name() => "Do nothing";
 }
 
-public class ActionKill : IAction, ITargetEnemy
+public class ActionKill : IAction
 {
     public void ExecuteAction(Entity source, Entity target)
     {
@@ -626,23 +631,86 @@ public class ActionKill : IAction, ITargetEnemy
     public string Name() => "Kill";
 }
 
-public static class ActionFactory
+public class ActionUseItem
 {
-    public static List<Type> ActionTypes = new List<Type>();
+    private IConsumable _item;
 
-    static ActionFactory() 
+    public ActionUseItem(Entity target, IConsumable item)
     {
-        foreach (Type prodType in Assembly.GetExecutingAssembly().GetTypes()
-            .Where(prodType => prodType.GetInterfaces().Contains(typeof(IAction))))
-                ActionTypes.Add(prodType);
+        _item = item;
     }
 
-    public static IAction GetAction(Type type)
+    public void ExecuteAction(Entity source, Entity target)
     {
-        object? a_Context = Activator.CreateInstance(type);
-        if (a_Context == null)
-            throw new ArgumentNullException();
-        return (IAction)a_Context;
+        _item.Use(target);
+    }
+}
+
+//public static class ActionFactory
+//{
+//    public static List<Type> ActionTypes = new List<Type>();
+
+//    static ActionFactory() 
+//    {
+//        foreach (Type prodType in Assembly.GetExecutingAssembly().GetTypes()
+//            .Where(prodType => prodType.GetInterfaces().Contains(typeof(IAction))))
+//                ActionTypes.Add(prodType);
+//    }
+
+//    public static IAction GetAction(Type type)
+//    {
+//        object? a_Context = Activator.CreateInstance(type);
+//        if (a_Context == null)
+//            throw new ArgumentNullException();
+//        return (IAction)a_Context;
+//    }
+//}
+
+public class BattleManager
+{
+    public PartyManager PlayerParty { get; }
+    public PartyManager EnemyParty { get; }
+
+    public BattleManager()
+    {
+        PlayerParty = new PartyManager();
+        EnemyParty = new PartyManager();
+    }
+
+    public void DoAction(IAction action)
+    {
+        
+    }
+}
+
+public class PartyManager
+{
+    public Party Party { get; }
+    public Inventory Inventory { get; }
+
+    public PartyManager()
+    {
+        Party = new Party();
+        Inventory = new Inventory();
+    }
+}
+
+public class Party
+{
+    private Dictionary<Guid, Entity> _party;
+
+    public Party() => _party = new Dictionary<Guid, Entity>();
+
+    public List<Entity> GetParty() => _party.Values.ToList();
+
+    public void AddEntity(Entity entity)
+    {
+        entity.EntityDied += OnEntityDeath;
+        _party.Add(entity.UniqueID, entity);
+    }
+    private void OnEntityDeath(Entity entity)
+    {
+        _party.Remove(entity.UniqueID);
     }
 }
 
@@ -668,6 +736,16 @@ public class Entity
     public EntityType Type { get; }
     public Guid UniqueID { get; }
     public event Action<Entity> ?EntityDied;
+
+    private Entity (EntityType type, int hp, Faction faction, int maxhp, string name, Guid guid)
+    {
+        Type = type;
+        HP = hp;
+        Faction = faction;
+        MaxHP = maxhp;
+        Name = name;
+        UniqueID = guid;
+    }
 
     public Entity (EntityType type)
     {
@@ -696,14 +774,19 @@ public class Entity
         if(this.HP - damage > 0)
         {
             this.HP -= damage;
-            DamageMessage();
+            HPAmountMessage();
             return;
         }
         DeathMessage();
         EntityDied?.Invoke(this);
     }
+    public void HealHealth(int amount)
+    {
+        this.HP = Math.Min(this.MaxHP, this.HP + amount);
+        HPAmountMessage();
+    }
 
-    private void DamageMessage()
+    private void HPAmountMessage()
     {
         ConsoleManager.BattleLog.AddMessage($"{this.Name} is now at {this.HP} / " +
             $"{this.MaxHP}");
@@ -715,7 +798,49 @@ public class Entity
 
 public record EntityStats(int HP, Func<int> Damage, string DamageString, Faction Faction);
 
+public class Inventory
+{
+    private List<IConsumable> _inventory { get; }
+    public Inventory() 
+    {
+        _inventory = new List<IConsumable>();
+    }
+
+    public List<IConsumable> GetInventory() => _inventory;
+
+    public void AddItem(IConsumable item) => _inventory.Add(item);
+
+    // Doesn't matter which one is removed, just that a single of that type is removed
+    public void RemoveItem(IConsumable item) => _inventory.Remove(item);
+}
+
+public interface IConsumable
+{
+    public string Name { get; }
+    public void Use(Entity target);
+}
+
+public class HealthPotion : IConsumable
+{
+    public string Name { get => "Health potion"; }
+    private int _healAmount = 10;
+
+    public void Use(Entity target)
+    {
+        target.HealHealth(_healAmount);
+    }
+}
+
+public class Bomb : IConsumable
+{
+    public string Name { get => "Bomb"; }
+    private int _damageAmount = 5;
+    
+    public void Use(Entity target) => target.DamageHealth(_damageAmount);
+}
+
 // ENUMS
 public enum PlayerType { User, Robot }
 public enum Faction { Ally, Enemy }
 public enum EntityType { SKELETON, UNCODED_ONE, PLAYER }
+public enum SelectionArea { ActionColumnOne, ActionColumnTwo, PartyLeft, PartyRight }
