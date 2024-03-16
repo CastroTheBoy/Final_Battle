@@ -55,11 +55,6 @@ internal sealed class ConsoleBuffer
         Buffer[index].Attributes = attribute;
         Buffer[index].Char.UnicodeChar = character;
     }
-
-    public static ushort CombineAttribute(BufferColor background = BufferColor.Black, BufferColor foreground = BufferColor.Green)
-    {
-        return (ushort)((ushort)((ushort)background << 4) | (ushort)foreground);
-    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -96,25 +91,4 @@ internal struct SmallRect
     public short Top;
     public short Right;
     public short Bottom;
-}
-
-[Flags]
-internal enum BufferColor : byte
-{
-    Black = 0b0000,
-    DarkBlue = 0b0001,
-    DarkGreen = 0b0010,
-    DarkCyan = 0b0011,
-    DarkRed = 0b0100,
-    DarkMagenta = 0b0101,
-    DarkYellow = 0b0110,
-    Gray = 0b0111,
-    DarkGray = 0b1000,
-    Blue = 0b1001,
-    Green = 0b1010,
-    Cyan = 0b1011,
-    Red = 0b1100,
-    Magenta = 0b1101,
-    Yellow = 0b1110,
-    White = 0b1111
 }
