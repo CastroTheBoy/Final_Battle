@@ -1,454 +1,316 @@
-﻿using System;
-using static System.Net.Mime.MediaTypeNames;
-
-public static class UIManager
+﻿public sealed class UIManager
 {
-    static UIManager()
+    private Dictionary<string, Dictionary<string, int>> _elementStringReference;
+    private Dictionary<string, List<UIElement>> _elementListReference;
+    private static UIManager? _instance = null;
+
+    private UIManager()
     {
-        // ----------------------------------------------------------
-        // Main game screen
-
-        UIPane gameScreen = new UIPane();
-        GameScreens.Add("Game", gameScreen);
-        ActivePane = gameScreen;
-
-        gameScreen.Elements.Add("OuterBorder", new UIElement(0, 0, 120, 30));
-        gameScreen.Elements.Add("ActionBorder", new UIElement(0, 20, 81, 30));
-        gameScreen.Elements.Add("LogBorder", new UIElement(80, 0, 120, 30));
-
-        // Drawing outer, action and log block borders
-        foreach (UIElement element in gameScreen.Elements.Values)
-            UIMethods.BuildBorder(element);
-        
-        // Action block elements
-        UIElement actionList = new UIElement(1, 21, 41, 29);
-        gameScreen.Elements.Add("ActionList", actionList);
-        ActionList = new UIListWriter(actionList);
-
-        UIElement itemList = new UIElement(41, 21, 80, 29);
-        gameScreen.Elements.Add("ItemList", itemList);
-        ItemList = new UIListWriter(itemList);
-
-        ActionList.SetList("Attack", "Kill", "Use item", "Equip gear", "Use gear");
-
-        // Party blocks
-        UIElement leftParty = new UIElement(1, 1, 40, 19);
-        LeftParty = new UIListWriter(leftParty);
-        gameScreen.Elements.Add("LeftParty", leftParty);
-
-        UIElement rightParty = new UIElement(41, 1, 79, 19);
-        RightParty = new UIListWriter(rightParty);
-        gameScreen.Elements.Add("RightParty", rightParty);
-
-        // Adding log
-        UIElement battleLog = new UIElement(81,1,119,29);
-        GameLog = new UIListWriter(battleLog);
-        gameScreen.Elements.Add("BattleLog",battleLog);
-
-        // ----------------------------------------------------------
-        // Start screen
-
-        UIPane startScreen = new UIPane();
-        GameScreens.Add("Start", startScreen);
-
-        startScreen.Elements.Add("OuterBorder", new UIElement(0, 0, 120, 30));
-
-        // Drawing outer border
-        foreach (UIElement element in startScreen.Elements.Values)
-            UIMethods.BuildBorder(element, '*', '*');
+        _elementStringReference = new Dictionary<string, Dictionary<string, int>> ();
+        _elementListReference = new Dictionary<string, List<UIElement>> ();
     }
 
-    public static Dictionary<string, UIPane> GameScreens = new Dictionary<string, UIPane>();
-    public static UIPane ActivePane;
-    public static UIListWriter GameLog;
-    public static UIListWriter ActionList;
-    public static UIListWriter ItemList;
-    public static UIListWriter LeftParty;
-    public static UIListWriter RightParty;
-
-    public static ConsoleColor Foreground = ConsoleColor.White;
-    public static ConsoleColor Background = ConsoleColor.Black;
-    public static ConsoleColor Highlight = ConsoleColor.DarkRed;
-
-    public static void Draw()
+    public static UIManager Instance
     {
-        while (true)
+        get
         {
-            Thread.Sleep(33); // 30 fps?
-            ActivePane.Draw();
+            if (_instance == null)
+            {
+                _instance = new UIManager();
+            }
+            return _instance;
         }
+    }
+
+    public void CreateGroup(string name)
+    {
+        _elementListReference.Add(name, new List<UIElement>());
+        _elementStringReference.Add(name, new Dictionary<string, int>());
+    }
+
+    public UIElement GetElement(string groupName, string elementName)
+    {
+        return _elementListReference[groupName][_elementStringReference[groupName][elementName]];
+    }
+
+    public void AddElement(string groupName, string elementName, UIElement element)
+    {
+        _elementListReference[groupName].Add(element);
+        _elementStringReference[groupName].Add(
+            elementName,
+            _elementListReference[groupName].IndexOf(element));
+    }
+
+    public void RemoveElement(string groupName, string elementName)
+    {
+        _elementListReference[groupName].RemoveAt(_elementStringReference[groupName][elementName]);
+        _elementStringReference[groupName].Remove(elementName);
+    }
+
+    public void DrawGroup(string groupName)
+    {
+        foreach (UIElement element in _elementListReference[groupName])
+            element.Draw();
     }
 }
 
-public class UIPane
+public abstract class UIElement
 {
-    public Dictionary<string, UIElement> Elements { get; } = new Dictionary<string, UIElement>();
+    public static int ConsoleHeight { get => Console.WindowHeight; }
+    public static int ConsoleWidth { get => Console.WindowWidth; }
 
-    public void Draw()
-    {
-        UIElement temp = new UIElement(0, 0, 120, 30);
-        foreach (UIElement element in Elements.Values)
-        {
-            lock (element.Buffer.SyncRoot)
-            {
-                for (int i = 0; i < element.Buffer.GetLength(0); i++)
-                    for (int j = 0; j < element.Buffer.GetLength(1); j++)
-                    {
-                        temp.Buffer[element.Left + i, element.Top + j] = element.Buffer[i, j].ShallowCopy();
-                    }
-            }
-        }
-        ToConsoleBuffer(temp.Buffer).Write();
-    }
-
-    private static ConsoleBuffer ToConsoleBuffer(ConsoleCharacter[,] arr)
-    {
-        ConsoleBuffer buffer = new ConsoleBuffer(0, 0, (short)arr.GetLength(0), (short)arr.GetLength(1));
-
-        int x = 0;
-        for (int j = 0; j < arr.GetLength(1); j++)
-            for (int i = 0; i < arr.GetLength(0); i++)
-            {
-                buffer.Add(x, Combiner(arr[i, j]), arr[i, j].Character);
-                x++;
-            }
-        return buffer;
-    }
-
-    private static ushort Combiner(ConsoleCharacter cc)
-    {
-        return (ushort)((ushort)((ushort)cc.Background << 4) | (ushort)cc.Foreground);
-    }
-}
-
-public class UIElement
-{
-    public ConsoleCharacter[,] Buffer { get; set; }
-    public short Left;
-    public short Right;
-    public short Top;
-    public short Bottom;
+    public short Left { get; }
+    public short Right { get; }
+    public short Top { get; }
+    public short Bottom { get; }
+    private protected ConsoleBuffer _buffer;
 
     public UIElement(short left, short top, short right, short bottom)
     {
         Left = left;
-        Top = top;
         Right = right;
+        Top = top;
         Bottom = bottom;
-        Buffer = new ConsoleCharacter[right - left, bottom - top];
-        for (int i = 0; i < Buffer.GetLength(0); i++)
-            for (int j = 0; j < Buffer.GetLength(1); j++)
-                Buffer[i, j] = new ConsoleCharacter();
+        _buffer = new ConsoleBuffer(left, top, right, bottom);
     }
 
-    public void Clear()
+    public void Draw() => _buffer.Write();
+
+    public void Clear(bool draw = false)
     {
-        foreach (ConsoleCharacter cc in Buffer)
+        for (int i = 0; i < _buffer.Buffer.Length; i++)
         {
-            cc.Character = ' ';
+            _buffer.Add(i, ConsoleBuffer.CombineAttribute(), (char)0);
         }
+
+        if (draw)
+            Draw();
     }
 }
 
-public class ConsoleCharacterString
+public sealed class BorderElement : UIElement
 {
-    private ConsoleCharacter[]? _array = null;
-    public string Text { get; set; }
-    public int Length { get => Text.Length; }
-    private ConsoleColor _backgroundStandard;
-    private ConsoleColor _backgroundHighlight = UIManager.Highlight;
-    public ConsoleColor Background
+    public BorderElement(short left, short top, short right, short bottom) : base(left, top, right, bottom) { }
+
+    public void BuildBorder(Border border)
+    {
+        int bufferIndex = -1;
+        for (int height = Top; height < Bottom; height++)
+            for (int width = Left; width < Right; width++)
+            {
+                bufferIndex++;
+                if (width == Left && border.HasFlag(Border.Left))
+                {
+                    _buffer.Add(bufferIndex, ConsoleBuffer.CombineAttribute(), '|');
+                    continue;
+                }
+                if (width == Right - 1 && border.HasFlag(Border.Right))
+                {
+                    _buffer.Add(bufferIndex, ConsoleBuffer.CombineAttribute(), '|');
+                    continue;
+                }
+                if (height == Top && border.HasFlag(Border.Top))
+                {
+                    _buffer.Add(bufferIndex, ConsoleBuffer.CombineAttribute(), '-');
+                    continue;
+                }
+                if (height == Bottom - 1 && border.HasFlag(Border.Bottom))
+                {
+                    _buffer.Add(bufferIndex, ConsoleBuffer.CombineAttribute(), '-');
+                    continue;
+                }
+            }
+    }
+}
+
+[Flags]
+public enum Border : byte
+{
+    Left = 0b0001,
+    Right = 0b0010,
+    Top = 0b0100,
+    Bottom = 0b1000
+}
+
+public sealed class TextEntry
+{
+    public string Text { get; }
+    public ushort Color
     {
         get
         {
-            return IsHighlighted ?_backgroundHighlight : _backgroundStandard;
+            if (IsHighlighted)
+                return _highlightedColor;
+            return _defaultColor;
         }
     }
-    public ConsoleColor Foreground;
-    public bool IsHighlighted = false;
+    public bool IsHighlighted { get; set; }
+    private ushort _defaultColor;
+    private ushort _highlightedColor;
 
-    public ConsoleCharacterString(ConsoleCharacter[] array)
-    {
-        _array = array;
-        string s = "";
-        foreach (ConsoleCharacter c in _array)
-            s += c.Character;
-        Text = s;
-    }
+    public TextEntry(string text) : this(text, false) { }
 
-    public ConsoleCharacterString(string text, ConsoleColor backgroundStandard, ConsoleColor backgroundHighlighted, ConsoleColor foreground)
+    public TextEntry(string text, bool isHighlighted) : this(text, ConsoleBuffer.CombineAttribute(), ConsoleBuffer.CombineAttribute(background: BufferColor.Yellow), isHighlighted) { }
+
+    public TextEntry(string text, ushort defaultColor, ushort highlighColor, bool isHighlighted = false)
     {
-        _backgroundHighlight = backgroundHighlighted;
-        _backgroundStandard = backgroundStandard;
-        Foreground = foreground;
         Text = text;
-    }
-
-    public ConsoleCharacterString(string text, ConsoleColor background, ConsoleColor foreground) : this(text, background, UIManager.Highlight, foreground) { }
-    public ConsoleCharacterString(string text, ConsoleColor foreground) : this(text, UIManager.Background, foreground) { }
-    public ConsoleCharacterString(string text) : this(text, UIManager.Foreground) { }
-
-    public ConsoleCharacter[] ToArray()
-    {
-        if(_array != null)
-        {
-            foreach (ConsoleCharacter c in _array)
-                c.Background = Background;
-            return _array;
-        }
-        ConsoleCharacter[] arr = new ConsoleCharacter[Text.Length];
-        for(int i = 0; i < Text.Length; i++)
-            arr[i] = new ConsoleCharacter(Text[i],Background, Foreground);
-        return arr;
+        _defaultColor = defaultColor;
+        _highlightedColor = highlighColor;
+        IsHighlighted = isHighlighted;
     }
 }
 
-public class ConsoleCharacterBuilder
+public abstract class WriterElement : UIElement
 {
-    private List<ConsoleCharacterString> _buffer = new();
+    public WriterElement(short left, short top, short right, short bottom) : base(left, top, right, bottom) { }
 
-    public void AddString(string text, ConsoleColor background, ConsoleColor foreground)
+    public void Write(bool draw = false, params TextEntry[] items)
     {
-        _buffer.Add(new ConsoleCharacterString(text, background, foreground));
-    }
-    public void AddString(string text, ConsoleColor foreground)
-    {
-        _buffer.Add(new ConsoleCharacterString(text, UIManager.Background, foreground));
-    }
-    public void AddString(string text)
-    {
-        _buffer.Add(new ConsoleCharacterString(text, UIManager.Background, UIManager.Foreground));
-    }
-    public void AddString(ConsoleCharacterString text)
-    {
-        _buffer.Add(text);
-    }
-
-    public ConsoleCharacterString Build()
-    {
-        int length = 0;
-        foreach (ConsoleCharacterString c in _buffer)
-            length += c.Text.Length;
-        ConsoleCharacter[] arr = new ConsoleCharacter[length];
-        int x = 0;
-        foreach (ConsoleCharacterString c in _buffer)
+        Clear();
+        int bufferIndex = 0;
+        foreach (TextEntry item in items)
         {
-            c.ToArray().CopyTo(arr, x);
-            x += c.Text.Length;
-        }
-        return new ConsoleCharacterString(arr);
-    }
-
-    public void Clear() => _buffer.Clear();
-}
-
-public class ConsoleCharacter
-{
-    public char Character { get; set; }
-    public ConsoleColor Background {  get; set; }
-    public ConsoleColor Foreground { get; set; }
-
-    public ConsoleCharacter(char character, ConsoleColor background, ConsoleColor foreground)
-    {
-        Character = character;
-        Foreground = foreground;
-        Background = background;
-    }
-
-    public ConsoleCharacter() : this(' ', UIManager.Background, UIManager.Foreground) { }
-    
-    public ConsoleCharacter ShallowCopy()
-    {
-        return (ConsoleCharacter) MemberwiseClone();
-    }
-}
-
-public class UIListWriter
-{
-    public int Count { get => _text.Count; }
-    private List<ConsoleCharacterString> _text = new();
-    private UIElement _element;
-    private int _maxLineChars;
-    private int _maxTotalChars;
-    private int _lowerIndex = 0;
-    private int _upperIndex = 0;
-    private List<int> _highlighted = new();
-
-    public UIListWriter(UIElement element)
-    {
-        _element = element;
-        _maxLineChars = element.Right - element.Left;
-        _maxTotalChars = (element.Bottom - element.Top) * (_maxLineChars);
-    }
-
-    public void ColorEntry(int index, bool highlight = true)
-    {
-        if (highlight)
-        {
-            if(!_highlighted.Contains(index)) _highlighted.Add(index);
-            WriteList();
-            return;
-        }
-        _highlighted.Remove(index);
-        WriteList();
-    }
-
-    public void AddEntry(string text) => AddEntry(new ConsoleCharacterString(text));
-    public void AddEntry(ConsoleCharacterString text)
-    {
-        _text.Add(text);
-        _upperIndex = _text.Count - 1;
-        _lowerIndex = GetMinMessageIndex(_upperIndex);
-        WriteList();
-    }
-    public void SetList(params string[] text)
-    {
-        List<ConsoleCharacterString> list = new();
-        foreach (string s in text)
-            list.Add(new ConsoleCharacterString(s));
-        _text = list;
-        _highlighted.Clear();
-        _lowerIndex = 0;
-        _upperIndex = GetMaxMessageIndex(_lowerIndex);
-        WriteList();
-    }
-    public List<string> GetList() => _text.Select(o => o.Text).ToList();
-    
-    public void ClearList()
-    {
-        _text.Clear();
-        _highlighted.Clear();
-        _lowerIndex = 0;
-        _upperIndex = 0;
-        _element.Clear();
-    }
-    public void ScrollList(bool up)
-    {
-        if (_text.Count == 0) return;
-        if (up)
-        {
-            if (_lowerIndex == 0) return;
-            _lowerIndex--;
-            _upperIndex = GetMaxMessageIndex(_lowerIndex);
-            WriteList();
-            return;
-        }
-        if (_upperIndex + 1 == _text.Count) return;
-        _upperIndex++;
-        _lowerIndex = GetMinMessageIndex(_upperIndex);
-        WriteList();
-    }
-
-    private void WriteList()
-    {
-        lock (_element.Buffer.SyncRoot)
-        {
-            _element.Clear();
-            ConsoleCharacterString? s = null;
-            ConsoleCharacter[]? arr = null;
-            int newLineCounter = 0;
-            int currentRowIndex;
-            int currentMesage = 0;
-            for (int i = _lowerIndex; i <= _upperIndex; i++)
+            for (int i = 0; i < item.Text.Length; i++)
             {
-                currentRowIndex = 0;
-                s = _text[i];
-                s.IsHighlighted = _highlighted.Contains(i);
-                arr = s.ToArray();
-                for (int c = 0; c < arr.Length; c++)
-                {
-                    if (currentRowIndex >= _maxLineChars)
-                    {
-                        newLineCounter++;
-                        currentRowIndex = 0;
-                    }
-                    _element.Buffer[currentRowIndex, newLineCounter] = arr[c].ShallowCopy();
-                    currentRowIndex++;
-                }
-                newLineCounter++;
-                currentMesage++;
+                _buffer.Add(bufferIndex, item.Color, item.Text[i]);
+                bufferIndex++;
+            }
+
+            // fill line
+            int curretLineIndex = bufferIndex % (Right - Left);
+            if (curretLineIndex == 0)
+                curretLineIndex = (Right - Left);
+            int currentLineRemainingChars = (Right - Left) - curretLineIndex;
+            int bufferCurrentLineEndIndex = bufferIndex + currentLineRemainingChars;
+
+            for (; bufferIndex < bufferCurrentLineEndIndex; bufferIndex++)
+            {
+                _buffer.Add(bufferIndex, ConsoleBuffer.CombineAttribute(), (char)0);
             }
         }
+        if (draw)
+            this.Draw();
+    }
+}
+
+public interface IListWriter
+{
+    public int Count { get; }
+    public void WriteList(bool draw = false);
+    public TextEntry GetElement(int index);
+}
+
+public class NamedListWriterElement : WriterElement, IListWriter
+{
+    private Dictionary<string, int> _messageDict;
+    private List<TextEntry> _messageList;
+    public int Count { get => _messageList.Count; }
+
+    public NamedListWriterElement(short left, short top, short right, short bottom) : base(left, top, right, bottom) 
+    {
+        _messageDict = new Dictionary<string, int>();
+        _messageList = new List<TextEntry>();
     }
 
-    private int GetMinMessageIndex(int maxIndex)
+    public void WriteList(bool draw = false)
     {
+        Write(draw, _messageList.ToArray());
+    }
+
+    public TextEntry GetElement(string name)
+    {
+        return _messageList[_messageDict[name]];
+    }
+    public TextEntry GetElement(int index)
+    {
+        return _messageList[index];
+    }
+
+    public void AddEntry(string name, TextEntry entry)
+    {
+        _messageList.Add(entry);
+        _messageDict.Add(name, _messageList.IndexOf(entry));
+    }
+
+    public void RemoveEntry(string name)
+    {
+        _messageList.RemoveAt(_messageDict[name]);
+        _messageDict.Remove(name);
+    }
+}
+
+public class ListWriterElement : WriterElement, IListWriter
+{
+    private List<TextEntry> _messageList;
+    public int Count { get => _messageList.Count; }
+
+    public ListWriterElement(short left, short top, short right, short bottom) : base(left, top, right, bottom) 
+    {
+        _messageList = new List<TextEntry>();
+    }
+
+    public void WriteList(bool draw = false)
+    {
+        Write(draw, _messageList.ToArray());
+    }
+
+    public TextEntry GetElement(int index)
+    {
+        return _messageList[index];
+    }
+
+    public void AddEntry(TextEntry entry)
+    {
+        _messageList.Add(entry);
+    }
+
+    public void SetList(List<TextEntry> entries, bool write = false)
+    {
+        _messageList = entries;
+        if (write)
+            WriteList();
+    }
+
+    public void RemoveEntry(int index)
+    {
+        _messageList.RemoveAt(index);
+    }
+}
+
+public sealed class LogWriterElement : WriterElement
+{
+    public List<TextEntry> _messages = new List<TextEntry>();
+
+    public LogWriterElement(short left, short top, short right, short bottom) : base(left, top, right, bottom) { }
+
+    public void WriteLog(bool draw = false)
+    {
+        Write(draw, _messages.ToArray()[GetMinMessageIndex()..]);
+    }
+
+    public void AddMessage(string text, bool draw = false)
+    {
+        _messages.Add(new TextEntry(text));
+        WriteLog(draw);
+    }
+
+    public void AddMessage(TextEntry entry, bool draw = false)
+    {
+        _messages.Add(entry);
+        WriteLog(draw);
+    }
+
+    public int GetMinMessageIndex()
+    {
+        int lineCharCount = (Right - Left);
         int runningTotal = 0;
-        for (int i = maxIndex; i >= 0; i--)
+        for (int i = _messages.Count - 1; i >= 0; i--)
         {
-            runningTotal += (int)Math.Ceiling(((double)_text[i].Length / (double)_maxLineChars)) * _maxLineChars;
-            if (runningTotal > _maxTotalChars)
+            runningTotal += (int)Math.Ceiling(((double)_messages[i].Text.Length / (double)lineCharCount)) * lineCharCount;
+            if (runningTotal > _buffer.Buffer.Length)
                 return i + 1;
         }
         return 0;
-    }
-
-    private int GetMaxMessageIndex(int minIndex)
-    {
-        int runningTotal = 0;
-        for (int i = minIndex; i < _text.Count; i++)
-        {
-            runningTotal += (int)Math.Ceiling(((double)_text[i].Length / (double)_maxLineChars)) * _maxLineChars;
-            if (runningTotal > _maxTotalChars)
-                return i - 1;
-        }
-        return _text.Count - 1;
-    }
-}
-
-public static class UIMethods
-{
-    public static void BuildBorder(UIElement element, char widthBorders = '|', char heightBorder = '-')
-    {
-        int width = element.Right - element.Left;
-        int height = element.Bottom - element.Top;
-
-        for (int i = 0; i < width; i++)
-        {
-            for (int j = 0; j < height; j++)
-            {
-                if (i == 0) { element.Buffer[i, j].Character = widthBorders; continue; }
-                if (i == width - 1)
-                { element.Buffer[i, j].Character = widthBorders; continue; }
-                if (j == 0) { element.Buffer[i, j].Character = heightBorder; continue; }
-                if (j == height - 1)
-                { element.Buffer[i, j].Character = heightBorder; continue; }
-            }
-        }
-    }
-}
-
-public static class UIListSelector
-{
-    public static int SelectFromList(UIListWriter list)
-    {
-        int index = 0;
-        list.ColorEntry(index);
-
-        while (true)
-        {
-            switch (Console.ReadKey().Key)
-            {
-                case ConsoleKey.Enter:
-                    list.ColorEntry(index, false);
-                    return index;
-                case ConsoleKey.DownArrow:
-                    list.ColorEntry(index, false);
-                    if (index >= list.Count - 1)
-                        index = 0;
-                    else
-                        index++;
-                    list.ColorEntry(index);
-                    continue;
-                case ConsoleKey.UpArrow:
-                    list.ColorEntry(index, false);
-                    if (index == 0)
-                        index = list.Count - 1;
-                    else
-                        index--;
-                    list.ColorEntry(index);
-                    continue;
-            }
-        }
     }
 }
