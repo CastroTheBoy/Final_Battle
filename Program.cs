@@ -9,8 +9,20 @@ Console.SetWindowSize(120, 30);
 Thread uiDrawer = new Thread(UIManager.Draw);
 uiDrawer.Start();
 
-GameManager game = new GameManager(PlayerType.User, PlayerType.Robot, "Castro");
+UIManager.ActivePane = UIManager.GameScreens["Start"];
+Thread.Sleep(50);
+UIManager.DrawScreen = false;
+Console.SetCursorPosition(30, 17);
+Console.ForegroundColor = ConsoleColor.White;
+Console.Write("What should we call You?: ");
+string name = Console.ReadLine() ?? "Player";
+
+GameManager game = new GameManager(PlayerType.User, PlayerType.Robot, name);
+
+UIManager.ActivePane = UIManager.GameScreens["Game"];
+UIManager.DrawScreen = true;
 game.Run();
+UIManager.Exit();
 
 public class GameManager
 {
@@ -18,33 +30,14 @@ public class GameManager
     public PlayerType EnemyPartyMode { get; }
     private int _currentRound = 1;
     private int _maxRounds = 3;
+    private string _playerName;
 
     public GameManager(PlayerType ally, PlayerType enemy, string playerName)
     {
+        _playerName = playerName;
         PlayerPartyMode = ally;
         EnemyPartyMode = enemy;
-
-        // Setup parties
-        PartyManager.Instance.AddParty("Player", "Adventurers", PlayerType.User);
-        PartyManager.Instance.GetParty("Player").AddEntity(EntityFactory.CreatePlayer());
-        Entity vin = EntityFactory.CreateVin();
-        vin.EquipGear(Weapon.CreateVinsBow());
-        PartyManager.Instance.GetParty("Player").AddEntity(vin);
-        PartyManager.Instance.GetParty("Player").Invetory.AddConsumable(
-            new HealthPotion(), new HealthPotion(), new HealthPotion(), 
-            new FirePotion(), new FirePotion(), new FirePotion(), 
-            new LightningPotion(), new LightningPotion(), new LightningPotion());
-        PartyManager.Instance.GetParty("Player").Invetory.AddConsumable(
-            Weapon.CreateExcalibur(), Weapon.CreateWoodenSword());
-
-        PartyManager.Instance.AddParty("Round1", "Band of Skeletons", PlayerType.Robot);
-        PartyManager.Instance.GetParty("Round1").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
-
-        PartyManager.Instance.AddParty("Round2", "Calcium Avengers", PlayerType.Robot);
-        PartyManager.Instance.GetParty("Round2").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
-
-        PartyManager.Instance.AddParty("Round3", "Forces of Evil", PlayerType.Robot);
-        PartyManager.Instance.GetParty("Round3").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton(), EntityFactory.CreateUncodedOne());
+        SetupParties();
     }
 
     //public GameManager() : this(
@@ -52,6 +45,39 @@ public class GameManager
     //    ConsoleManager.AskForPlayerTypeWithHighlight(Faction.Enemy),
     //    ConsoleManager.AskForPlayerName())
     //{ }
+
+    public void SetupParties()
+    {
+        PartyManager parties = PartyManager.Instance;
+        if (parties.PartyExists("Player"))
+            parties.RemoveParty("Player");
+        parties.AddParty("Player", "Adventurers", PlayerType.User);
+        parties.GetParty("Player").AddEntity(EntityFactory.CreatePlayer(_playerName));
+        Entity vin = EntityFactory.CreateVin();
+        vin.EquipGear(Weapon.CreateVinsBow());
+        parties.GetParty("Player").AddEntity(vin);
+        parties.GetParty("Player").Invetory.AddConsumable(
+            new HealthPotion(), new HealthPotion(), new HealthPotion(),
+            new FirePotion(), new FirePotion(), new FirePotion(),
+            new LightningPotion(), new LightningPotion(), new LightningPotion());
+        parties.GetParty("Player").Invetory.AddConsumable(
+            Weapon.CreateExcalibur(), Weapon.CreateWoodenSword());
+
+        if (parties.PartyExists("Round1"))
+            parties.RemoveParty("Round1");
+        parties.AddParty("Round1", "Band of Skeletons", PlayerType.Robot);
+        parties.GetParty("Round1").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
+
+        if (parties.PartyExists("Round2"))
+            parties.RemoveParty("Round2");
+        parties.AddParty("Round2", "Calcium Avengers", PlayerType.Robot);
+        parties.GetParty("Round2").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
+
+        if (parties.PartyExists("Round3"))
+            parties.RemoveParty("Round3");
+        parties.AddParty("Round3", "Forces of Evil", PlayerType.Robot);
+        parties.GetParty("Round3").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton(), EntityFactory.CreateUncodedOne());
+    }
 
     private bool DoRound(int round)
     {
@@ -61,20 +87,21 @@ public class GameManager
 
     private BattleManager SetupRoundBattleManager(int round)
     {
+        PartyManager parties = PartyManager.Instance;
         switch (round)
         {
             case 1:
                 return new BattleManager(
-                    PartyManager.Instance.GetParty("Player"),
-                    PartyManager.Instance.GetParty("Round1"));
+                    parties.GetParty("Player"),
+                    parties.GetParty("Round1"));
             case 2:
                 return new BattleManager(
-                    PartyManager.Instance.GetParty("Player"),
-                    PartyManager.Instance.GetParty("Round2"));
+                    parties.GetParty("Player"),
+                    parties.GetParty("Round2"));
             case 3:
                 return new BattleManager(
-                    PartyManager.Instance.GetParty("Player"),
-                    PartyManager.Instance.GetParty("Round3"));
+                    parties.GetParty("Player"),
+                    parties.GetParty("Round3"));
             default:
                 throw new NotSupportedException();
         }
@@ -82,17 +109,31 @@ public class GameManager
 
     public void Run()
     {
-        for (; _currentRound <= _maxRounds; _currentRound++)
+        while (true)
         {
-            if(DoRound(_currentRound))
-                UIManager.GameLog.AddEntry($"All enemies have been defeated in round {_currentRound}. Proceeding to round {_currentRound + 1}/{_maxRounds}.");
-            else
+            for (; _currentRound <= _maxRounds; _currentRound++)
             {
-                UIManager.GameLog.AddEntry("You have been slain! GAME OVER...");
-                return;
+                if (DoRound(_currentRound))
+                    UIManager.GameLog.AddEntry($"All enemies have been defeated in round {_currentRound}. Proceeding to round {_currentRound + 1}/{_maxRounds}.");
+                else
+                {
+                    UIManager.GameLog.AddEntry("You have been slain! GAME OVER...");
+                    return;
+                }
+            }
+            UIManager.ActivePane = UIManager.GameScreens["End"];
+            switch (Console.ReadKey().Key)
+            {
+                case ConsoleKey.Escape:
+                    return;
+                case ConsoleKey.Enter:
+                    UIManager.GameLog.ClearList();
+                    UIManager.ActivePane = UIManager.GameScreens["Game"];
+                    _currentRound = 1;
+                    SetupParties();
+                    break;
             }
         }
-        UIManager.GameLog.AddEntry("All enemies have been defeated! You Win!");
     }
 }
 

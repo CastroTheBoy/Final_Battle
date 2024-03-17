@@ -102,6 +102,8 @@ public static class EntityFactory
 {
     public static Entity CreatePlayer() => new Entity(25, 25,
         new ConsoleCharacterString("Player", ConsoleColor.Black, ConsoleColor.Yellow), () => 2, "Slap");
+    public static Entity CreatePlayer(string name) => new Entity(25, 25,
+        new ConsoleCharacterString(name, ConsoleColor.Black, ConsoleColor.Yellow), () => 2, "Slap");
     public static Entity CreateVin() => new Entity(15, 15,
         new ConsoleCharacterString("Vin Fletcher", ConsoleColor.Black, ConsoleColor.Yellow), () => 2, "Slap");
     public static Entity CreateSkeleton() => new Entity(5, 5,

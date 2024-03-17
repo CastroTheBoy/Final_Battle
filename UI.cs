@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Security.Cryptography.X509Certificates;
-
-public static class UIManager
+﻿public static class UIManager
 {
     static UIManager()
     {
@@ -72,6 +69,40 @@ public static class UIManager
         // Drawing outer border
         foreach (UIElement element in startScreen.Elements.Values)
             UIMethods.BuildBorder(element, '*', '*');
+
+        UIElement startScreenMessage = new UIElement(30, 10, 92, 29);
+        startScreen.Elements.Add("StartMessage", startScreenMessage);
+
+        UIListWriter startScreenMessageList = new(startScreenMessage);
+        startScreenMessageList.AddEntry("Welocome, Hero!");
+        startScreenMessageList.AddEntry("The realm of C# is being assaulted by the malevolent Uncoded One.");
+        startScreenMessageList.AddEntry("Only the power of the progammer can defeat him!");
+        startScreenMessageList.AddEntry("You must rise up and defeat the great evil to save it's inhabitants.");
+
+        // ----------------------------------------------------------
+        // End game screen
+
+        UIPane endScreen = new UIPane();
+        GameScreens.Add("End", endScreen);
+
+        UIElement endScreenOuterBorder = new UIElement(0, 0, 120, 30);
+        endScreen.Elements.Add("OuterBorder", endScreenOuterBorder);
+
+        // Drawing outer border
+        foreach (UIElement element in endScreen.Elements.Values)
+            UIMethods.BuildBorder(element, '*', '*');
+
+        UIElement endScreenVictoryMessage = new UIElement(30, 10, 92
+            , 29);
+        endScreen.Elements.Add("VictoryMessage", endScreenVictoryMessage);
+
+        UIListWriter endScreenVictoryMessageList = new(endScreenVictoryMessage);
+        endScreenVictoryMessageList.SetList(
+            "Congratulation, Hero!",
+            "You have defeated the great evil plaguing the lands and saved it's residents from life long suffering.",
+            "",
+            "Press ESC to exit the game or press Enter to battle once more.");
+
     }
 
     public static Dictionary<string, UIPane> GameScreens = new Dictionary<string, UIPane>();
@@ -86,16 +117,22 @@ public static class UIManager
     public static UIListWriter RightParty;
     public static UIListWriter RightPartyHeader;
 
+    public static bool DrawScreen = true;
+    public static bool _drawLoop = true;
+
     public static ConsoleColor Foreground = ConsoleColor.White;
     public static ConsoleColor Background = ConsoleColor.Black;
     public static ConsoleColor Highlight = ConsoleColor.DarkRed;
 
+    public static void Exit() => _drawLoop = false;
+
     public static void Draw()
     {
-        while (true)
+        while (_drawLoop)
         {
             Thread.Sleep(33); // 30 fps?
-            ActivePane.Draw();
+            if (DrawScreen)
+                ActivePane.Draw();
         }
     }
 }

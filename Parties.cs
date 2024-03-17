@@ -17,11 +17,14 @@
         }
     }
 
+    public bool PartyExists(string name)
+    {
+        return _parties.ContainsKey(name);
+    }
     public void AddParty(string name, PlayerType controller)
     {
         _parties.Add(name, new Party(name, controller));
     }
-
     public void AddParty(string name, string partyName, PlayerType controller)
     {
         _parties.Add(name, new Party(partyName, controller));
