@@ -54,6 +54,7 @@ public class PlayerActionManager : IActionManager
             switch (action)
             {
                 case -1:
+                    action = 0;
                     continue;
                 case 0:
                     if (Attack(entity, _battle.SelectFromEnemies(entity)))
