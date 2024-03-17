@@ -21,6 +21,11 @@
     {
         _parties.Add(name, new Party(name, controller));
     }
+
+    public void AddParty(string name, string partyName, PlayerType controller)
+    {
+        _parties.Add(name, new Party(partyName, controller));
+    }
     public void RemoveParty(string name)
     {
         _parties.Remove(name);

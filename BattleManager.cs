@@ -51,6 +51,7 @@
 
     private void UpdateDisplayState(Entity? entity = null)
     {
+        UIManager.LeftPartyHeader.SetList(_leftParty.Name);
         UIManager.LeftParty.ClearList();
         foreach (Entity ent in _leftParty.Entities)
         {
@@ -61,6 +62,8 @@
             builder.AddString(ent.HPAmount());
             UIManager.LeftParty.AddEntry(builder.Build());
         }
+
+        UIManager.RightPartyHeader.SetList(_rightParty.Name);
         UIManager.RightParty.ClearList();
         foreach (Entity ent in _rightParty.Entities)
         {
@@ -123,20 +126,36 @@
         throw new Exception("Entity was not found in any party belonging to battle manager!");
     }
 
-    public Entity SelectFromAllies(Entity entity)
+    public Entity? SelectFromAllies(Entity entity)
     {
         if (_leftParty.Entities.Contains(entity))
-            return _leftParty.Entities[UIListSelector.SelectFromList(UIManager.LeftParty)];
+        {
+            int index = UIManager.LeftParty.SelectFromList();
+            if (index < 0) return null;
+            return _leftParty.Entities[index];
+        }
         if (_rightParty.Entities.Contains(entity))
-            return _rightParty.Entities[UIListSelector.SelectFromList(UIManager.RightParty)];
+        {
+            int index = UIManager.RightParty.SelectFromList();
+            if (index < 0) return null;
+            return _rightParty.Entities[index];
+        }
         throw new Exception("Entity was not found in any party belonging to battle manager!");
     }
-    public Entity SelectFromEnemies(Entity entity)
+    public Entity? SelectFromEnemies(Entity entity)
     {
         if (_leftParty.Entities.Contains(entity))
-            return _rightParty.Entities[UIListSelector.SelectFromList(UIManager.RightParty)];
+        {
+            int index = UIManager.RightParty.SelectFromList();
+            if (index < 0) return null;
+            return _rightParty.Entities[index];
+        }
         if (_rightParty.Entities.Contains(entity))
-            return _leftParty.Entities[UIListSelector.SelectFromList(UIManager.LeftParty)];
+        {
+            int index = UIManager.LeftParty.SelectFromList();
+            if (index < 0) return null;
+            return _leftParty.Entities[index];
+        }
         throw new Exception("Entity was not found in any party belonging to battle manager!");
     }
 }

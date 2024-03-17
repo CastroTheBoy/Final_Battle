@@ -25,7 +25,7 @@ public class GameManager
         EnemyPartyMode = enemy;
 
         // Setup parties
-        PartyManager.Instance.AddParty("Player", PlayerType.User);
+        PartyManager.Instance.AddParty("Player", "Adventurers", PlayerType.User);
         PartyManager.Instance.GetParty("Player").AddEntity(EntityFactory.CreatePlayer());
         Entity vin = EntityFactory.CreateVin();
         vin.EquipGear(Weapon.CreateVinsBow());
@@ -37,13 +37,13 @@ public class GameManager
         PartyManager.Instance.GetParty("Player").Invetory.AddConsumable(
             Weapon.CreateExcalibur(), Weapon.CreateWoodenSword());
 
-        PartyManager.Instance.AddParty("Round1", PlayerType.Robot);
+        PartyManager.Instance.AddParty("Round1", "Band of Skeletons", PlayerType.Robot);
         PartyManager.Instance.GetParty("Round1").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
 
-        PartyManager.Instance.AddParty("Round2", PlayerType.Robot);
+        PartyManager.Instance.AddParty("Round2", "Calcium Avengers", PlayerType.Robot);
         PartyManager.Instance.GetParty("Round2").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton());
 
-        PartyManager.Instance.AddParty("Round3", PlayerType.Robot);
+        PartyManager.Instance.AddParty("Round3", "Forces of Evil", PlayerType.Robot);
         PartyManager.Instance.GetParty("Round3").AddEntity(EntityFactory.CreateSkeleton(), EntityFactory.CreateSkeleton(), EntityFactory.CreateUncodedOne());
     }
 
@@ -56,7 +56,7 @@ public class GameManager
     private bool DoRound(int round)
     {
         BattleManager battle = SetupRoundBattleManager(round);
-        return battle.DoBattle().Name == "Player";
+        return battle.DoBattle().Name == "Adventurers";
     }
 
     private BattleManager SetupRoundBattleManager(int round)

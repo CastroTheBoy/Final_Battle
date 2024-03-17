@@ -1,4 +1,7 @@
-﻿public interface IActionManager
+﻿using System.IO;
+using System.Security.Cryptography.X509Certificates;
+
+public interface IActionManager
 {
     public void DoAction(Entity entity);
 }
@@ -43,11 +46,15 @@ public class PlayerActionManager : IActionManager
 
     public void DoAction(Entity entity)
     {
+        int action = 0;
         while (true)
         {
-            int action = UIListSelector.SelectFromList(UIManager.ActionList);
+            UIManager.ActionList.ClearHighlights();
+            action = UIManager.ActionList.SelectFromList(action, false);
             switch (action)
             {
+                case -1:
+                    continue;
                 case 0:
                     if (Attack(entity, _battle.SelectFromEnemies(entity)))
                         return;
@@ -74,8 +81,9 @@ public class PlayerActionManager : IActionManager
         }
     }
 
-    private bool Attack(Entity attacker, Entity target)
+    private bool Attack(Entity attacker, Entity? target)
     {
+        if (target == null) return false;
         int damage = attacker.GetDamage();
         ConsoleCharacterBuilder builder = new();
         builder.AddString(attacker.Name);
@@ -89,8 +97,9 @@ public class PlayerActionManager : IActionManager
         return true;
     }
 
-    private bool Kill(Entity target)
+    private bool Kill(Entity? target)
     {
+        if (target == null) return false;
         ConsoleCharacterBuilder builder = new();
         builder.AddString("~ ");
         builder.AddString("Hand of God", foreground: ConsoleColor.Red);
@@ -126,7 +135,9 @@ public class PlayerActionManager : IActionManager
         }
         if (entity.GetGear() is ITargetSingleEnemy)
         {
-            ((ITargetSingleEnemy)entity.GetGear()).Target(entity, _battle.SelectFromEnemies(entity));
+            Entity? target = _battle.SelectFromEnemies(entity);
+            if (target is null) return false;
+            ((ITargetSingleEnemy)entity.GetGear()).Target(entity, target);
             return true;
         }
         return false;
@@ -139,7 +150,13 @@ public class PlayerActionManager : IActionManager
             UIManager.GameLog.AddEntry("No gear to equip!");
             return false;
         }
-        Gear gear = SelectFromGear(allyParty);
+
+        WriteGearList(allyParty);
+        int index = UIManager.ItemList.SelectFromList();
+        ClearItemList();
+        if (index == -1) return false;     
+
+        Gear gear = allyParty.Invetory.GetGear()[index];
         Gear? oldGear = entity.EquipGear(gear);
         ConsoleCharacterBuilder builder = new();
         if (oldGear == null)
@@ -173,47 +190,68 @@ public class PlayerActionManager : IActionManager
             UIManager.GameLog.AddEntry("No Consumable in inventory!");
             return false;
         }
-        Consumable item = SelectFromConsumable(allyParty);
-        if (item is ITargetAllyParty)
+        int index = 0;
+        WriteConsumableList(allyParty);
+        while (true)
         {
-            ((ITargetAllyParty)item).Target(entity, allyParty);
-            allyParty.Invetory.RemoveConsumable(item);
-            return true;
+            index = UIManager.ItemList.SelectFromList(index, false);
+            if (index == -1)
+            {
+                ClearItemList();
+                return false;
+            }
+
+            Consumable item = SelectFromConsumableList(allyParty, index);
+            if (item is ITargetAllyParty)
+            {
+                ((ITargetAllyParty)item).Target(entity, allyParty);
+                allyParty.Invetory.RemoveConsumable(item);
+                ClearItemList();
+                return true;
+            }
+            if (item is ITargetEnemyParty)
+            {
+                ((ITargetEnemyParty)item).Target(entity, enemyParty);
+                allyParty.Invetory.RemoveConsumable(item);
+                ClearItemList();
+                return true;
+            }
+            if (item is ITargetSingleAlly)
+            {
+                Entity? target = _battle.SelectFromAllies(entity);
+                if (target is null) continue;
+                ((ITargetSingleAlly)item).Target(entity, target);
+                allyParty.Invetory.RemoveConsumable(item);
+                ClearItemList();
+                return true;
+            }
+            if (item is ITargetSingleEnemy)
+            {
+                Entity? target = _battle.SelectFromEnemies(entity);
+                if (target is null) continue;
+                ((ITargetSingleEnemy)item).Target(entity, target);
+                allyParty.Invetory.RemoveConsumable(item);
+                ClearItemList();
+                return true;
+            }
         }
-        if (item is ITargetEnemyParty)
-        {
-            ((ITargetEnemyParty)item).Target(entity, enemyParty);
-            allyParty.Invetory.RemoveConsumable(item);
-            return true;
-        }
-        if (item is ITargetSingleAlly)
-        {
-            ((ITargetSingleAlly)item).Target(entity, _battle.SelectFromAllies(entity));
-            allyParty.Invetory.RemoveConsumable(item);
-            return true;
-        }
-        if (item is ITargetSingleEnemy)
-        {
-            ((ITargetSingleEnemy)item).Target(entity, _battle.SelectFromEnemies(entity));
-            allyParty.Invetory.RemoveConsumable(item);
-            return true;
-        }
-        return false;
     }
 
-    private Gear SelectFromGear(Party party)
+    private void WriteGearList(Party party)
     {
-        UIManager.ItemList.ClearList();
-
+        UIManager.ItemListHeader.SetList(new ConsoleCharacterString("Gear", ConsoleColor.DarkYellow));
         UIManager.ItemList.SetList(party.Invetory.GetGear().Select(o => o.Name).ToArray());
-        int index = UIListSelector.SelectFromList(UIManager.ItemList);
-        UIManager.ItemList.ClearList();
-        return party.Invetory.GetGear()[index];
     }
 
-    private Consumable SelectFromConsumable(Party party)
+    private void ClearItemList()
     {
         UIManager.ItemList.ClearList();
+        UIManager.ItemListHeader.ClearList();
+    }
+
+    private void WriteConsumableList(Party party)
+    {
+        UIManager.ItemListHeader.SetList(new ConsoleCharacterString("Items", ConsoleColor.DarkYellow));
 
         var itemGroups = party.Invetory.GetConsumables().GroupBy(o => o.Name.Text).OrderBy(o => o.Key);
         var groupsWithCount = itemGroups.Select(group => new { Name = group.Key, Count = group.Count() }).OrderBy(o => o.Name);
@@ -228,10 +266,15 @@ public class PlayerActionManager : IActionManager
             builder.AddString($" x{groupsWithCount.ElementAt(i).Count}");
             UIManager.ItemList.AddEntry(builder.Build());
         }
+    }
 
-        int index = UIListSelector.SelectFromList(UIManager.ItemList);
+    private Consumable SelectFromConsumableList(Party party, int index)
+    {
+        var itemGroups = party.Invetory.GetConsumables().GroupBy(o => o.Name.Text).OrderBy(o => o.Key);
+        var groupsWithCount = itemGroups.Select(group => new { Name = group.Key, Count = group.Count() }).OrderBy(o => o.Name);
+        var groupColors = party.Invetory.GetConsumables().GroupBy(o => o.Name.Text).Select(o => o.First()).OrderBy(o => o.Name.Text);
+
         string name = groupsWithCount.ElementAt(index).Name;
-        UIManager.ItemList.ClearList();
         return party.Invetory.GetConsumables().Where(o => o.Name.Text == name).Select(o => o).First();
     }
 }

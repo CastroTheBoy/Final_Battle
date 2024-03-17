@@ -1,5 +1,5 @@
-﻿using System;
-using static System.Net.Mime.MediaTypeNames;
+﻿using System.Collections.Generic;
+using System.Security.Cryptography.X509Certificates;
 
 public static class UIManager
 {
@@ -21,24 +21,40 @@ public static class UIManager
             UIMethods.BuildBorder(element);
         
         // Action block elements
-        UIElement actionList = new UIElement(1, 21, 41, 29);
+        UIElement actionList = new UIElement(3, 22, 41, 29);
         gameScreen.Elements.Add("ActionList", actionList);
         ActionList = new UIListWriter(actionList);
+        ActionList.SetList("Attack", "Kill", "Use item", "Equip gear", "Use gear");
 
-        UIElement itemList = new UIElement(41, 21, 80, 29);
+        UIElement actionListHeader = new UIElement(3, 21, 41, 22);
+        gameScreen.Elements.Add("ActionListHeader", actionListHeader);
+        ActionListHeader = new UIListWriter(actionListHeader);
+        ActionListHeader.SetList(new ConsoleCharacterString("Actions",ConsoleColor.DarkYellow));
+
+        UIElement itemList = new UIElement(41, 22, 80, 29);
         gameScreen.Elements.Add("ItemList", itemList);
         ItemList = new UIListWriter(itemList);
 
-        ActionList.SetList("Attack", "Kill", "Use item", "Equip gear", "Use gear");
+        UIElement itemListHeader = new UIElement(41, 21, 80, 22);
+        gameScreen.Elements.Add("ItemListHeader", itemListHeader);
+        ItemListHeader = new UIListWriter(itemListHeader);
 
         // Party blocks
-        UIElement leftParty = new UIElement(1, 1, 40, 19);
+        UIElement leftParty = new UIElement(5, 3, 40, 19);
         LeftParty = new UIListWriter(leftParty);
         gameScreen.Elements.Add("LeftParty", leftParty);
+        
+        UIElement leftPartyHeader = new UIElement(5, 2, 40, 3);
+        gameScreen.Elements.Add("LeftPartyHeader", leftPartyHeader);
+        LeftPartyHeader = new UIListWriter(leftPartyHeader);
 
-        UIElement rightParty = new UIElement(41, 1, 79, 19);
+        UIElement rightParty = new UIElement(45, 3, 79, 19);
         RightParty = new UIListWriter(rightParty);
         gameScreen.Elements.Add("RightParty", rightParty);
+
+        UIElement rightPartyHeader = new UIElement(45, 2, 79, 3);
+        gameScreen.Elements.Add("RIghtPartyHeader", rightPartyHeader);
+        RightPartyHeader = new UIListWriter(rightPartyHeader);
 
         // Adding log
         UIElement battleLog = new UIElement(81,1,119,29);
@@ -62,9 +78,13 @@ public static class UIManager
     public static UIPane ActivePane;
     public static UIListWriter GameLog;
     public static UIListWriter ActionList;
+    public static UIListWriter ActionListHeader;
     public static UIListWriter ItemList;
+    public static UIListWriter ItemListHeader;
     public static UIListWriter LeftParty;
+    public static UIListWriter LeftPartyHeader;
     public static UIListWriter RightParty;
+    public static UIListWriter RightPartyHeader;
 
     public static ConsoleColor Foreground = ConsoleColor.White;
     public static ConsoleColor Background = ConsoleColor.Black;
@@ -146,6 +166,8 @@ public class UIElement
         foreach (ConsoleCharacter cc in Buffer)
         {
             cc.Character = ' ';
+            cc.Foreground = UIManager.Foreground;
+            cc.Background = UIManager.Background;
         }
     }
 }
@@ -293,6 +315,12 @@ public class UIListWriter
         WriteList();
     }
 
+    public void ClearHighlights()
+    {
+        _highlighted.Clear();
+        WriteList();
+    }
+
     public void AddEntry(string text) => AddEntry(new ConsoleCharacterString(text));
     public void AddEntry(ConsoleCharacterString text)
     {
@@ -306,6 +334,15 @@ public class UIListWriter
         List<ConsoleCharacterString> list = new();
         foreach (string s in text)
             list.Add(new ConsoleCharacterString(s));
+        _text = list;
+        _highlighted.Clear();
+        _lowerIndex = 0;
+        _upperIndex = GetMaxMessageIndex(_lowerIndex);
+        WriteList();
+    }
+    public void SetList(params ConsoleCharacterString[] text)
+    {
+        List<ConsoleCharacterString> list = [.. text];
         _text = list;
         _highlighted.Clear();
         _lowerIndex = 0;
@@ -394,6 +431,43 @@ public class UIListWriter
         }
         return _text.Count - 1;
     }
+
+    public int SelectFromList(int startingIndex = 0, bool clearHighlight = true)
+    {
+        int index = startingIndex;
+        ColorEntry(index);
+
+        while (true)
+        {
+            switch (Console.ReadKey().Key)
+            {
+                case ConsoleKey.Enter:
+                    if (clearHighlight)
+                        ColorEntry(index, false);
+                    return index;
+                case ConsoleKey.DownArrow:
+                    ColorEntry(index, false);
+                    if (index >= Count - 1)
+                        index = 0;
+                    else
+                        index++;
+                    ColorEntry(index);
+                    continue;
+                case ConsoleKey.UpArrow:
+                    ColorEntry(index, false);
+                    if (index == 0)
+                        index = Count - 1;
+                    else
+                        index--;
+                    ColorEntry(index);
+                    continue;
+                case ConsoleKey.Escape:
+                    if (clearHighlight)
+                        ColorEntry(index, false);
+                    return -1;
+            }
+        }
+    }
 }
 
 public static class UIMethods
@@ -413,41 +487,6 @@ public static class UIMethods
                 if (j == 0) { element.Buffer[i, j].Character = heightBorder; continue; }
                 if (j == height - 1)
                 { element.Buffer[i, j].Character = heightBorder; continue; }
-            }
-        }
-    }
-}
-
-public static class UIListSelector
-{
-    public static int SelectFromList(UIListWriter list)
-    {
-        int index = 0;
-        list.ColorEntry(index);
-
-        while (true)
-        {
-            switch (Console.ReadKey().Key)
-            {
-                case ConsoleKey.Enter:
-                    list.ColorEntry(index, false);
-                    return index;
-                case ConsoleKey.DownArrow:
-                    list.ColorEntry(index, false);
-                    if (index >= list.Count - 1)
-                        index = 0;
-                    else
-                        index++;
-                    list.ColorEntry(index);
-                    continue;
-                case ConsoleKey.UpArrow:
-                    list.ColorEntry(index, false);
-                    if (index == 0)
-                        index = list.Count - 1;
-                    else
-                        index--;
-                    list.ColorEntry(index);
-                    continue;
             }
         }
     }
