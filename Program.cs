@@ -10,12 +10,13 @@ Thread uiDrawer = new Thread(UIManager.Draw);
 uiDrawer.Start();
 
 UIManager.ActivePane = UIManager.GameScreens["Start"];
-Thread.Sleep(50);
+Thread.Sleep(50); // Make sure uiDrawer has had time to render atleast once
 UIManager.DrawScreen = false;
 Console.SetCursorPosition(30, 17);
 Console.ForegroundColor = ConsoleColor.White;
 Console.Write("What should we call You?: ");
-string name = Console.ReadLine() ?? "Player";
+string? name = Console.ReadLine();
+name = string.IsNullOrEmpty(name) ? "Player" : name;
 
 GameManager game = new GameManager(PlayerType.User, PlayerType.Robot, name);
 
