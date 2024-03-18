@@ -41,12 +41,6 @@ public class GameManager
         SetupParties();
     }
 
-    //public GameManager() : this(
-    //    ConsoleManager.AskForPlayerTypeWithHighlight(Faction.Ally),
-    //    ConsoleManager.AskForPlayerTypeWithHighlight(Faction.Enemy),
-    //    ConsoleManager.AskForPlayerName())
-    //{ }
-
     public void SetupParties()
     {
         PartyManager parties = PartyManager.Instance;

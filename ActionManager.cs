@@ -1,7 +1,4 @@
-﻿using System.IO;
-using System.Security.Cryptography.X509Certificates;
-
-public interface IActionManager
+﻿public interface IActionManager
 {
     public void DoAction(Entity entity);
 }
